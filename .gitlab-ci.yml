@@ -25,11 +25,6 @@ variables:
   #CONTAINER_TEST_IMAGE: dockerfactory-unstable-iva.si.francetelecom.fr/$CI_PROJECT_PATH:$CI_COMMIT_REF_NAME
   #CONTAINER_RELEASE_IMAGE: dockerfactory-iva.si.francetelecom.fr/$CI_PROJECT_PATH:$CI_COMMIT_REF_NAME
 
-  # Proxies: See    https://gitlab.forge.orange-labs.fr/snippets/174
-  http_proxy: "http://devwatt-proxy.si.fr.intraorange:8080"
-  https_proxy: "http://devwatt-proxy.si.fr.intraorange:8080"
-  no_proxy: docker,gitlab.forge.orange-labs.fr,registry.forge.orange-labs.fr
-
   # When pushing to Gitlab registry
   REGISTRY_USER: gitlab-ci-token
   REGISTRY_PASSWORD: $CI_JOB_TOKEN
@@ -94,7 +89,7 @@ docker-lint-job:
     - shared
   stage: docker-lint
   script:
-    - dockerfile_lint --permissive -f Dockerfile
+    - dockerfile_lint -f Dockerfile
 
 
 # ==================================================
@@ -118,7 +113,7 @@ docker-build-job:
     ### DOCKER SECTION ###
     - docker pull $CONTAINER_TEST_IMAGE || true
     # Build using cache if exist
-    - set -x ; docker build --cache-from $CONTAINER_TEST_IMAGE --build-arg ORANGE_VERSION=$ORANGE_VERSION --build-arg http_proxy=$http_proxy --build-arg https_proxy=$http_proxy --build-arg no_proxy=$no_proxy --tag $CONTAINER_TEST_IMAGE .
+    - docker build --cache-from $CONTAINER_TEST_IMAGE --tag $CONTAINER_TEST_IMAGE .
     - docker push $CONTAINER_TEST_IMAGE
     # Display the size of each layer
     - docker history $CONTAINER_TEST_IMAGE
@@ -131,24 +126,24 @@ docker-build-job:
 # ==================================================
 
 # Tests should be run as a health_check. If so, you don't need to edit this job
-#docker-test-image-job:
-#  <<: *job_definition_docker
-#  stage: docker-test
-#  script:
-#
-#    # Test by internal health_check (Recommended way, more info https://docs.docker.com/engine/reference/builder/#healthcheck)
-#    # This looks complicated but you normally don't have to touch this...
-#    - 'CONTAINER_TEST_ID=`docker run -d $CONTAINER_TEST_IMAGE` && echo $CONTAINER_TEST_ID'
-#    - 'TIMESTAMP_FROM=$(echo $(( `date +%s` - $DOCKER_HEALTHCHECK_TIMEOUT )))'
-#    - 'TIMESTAMP_TO=$(echo $(( `date +%s` + $DOCKER_HEALTHCHECK_TIMEOUT )))'
-#    - 'FULL_RESULT=`docker events --filter container=$CONTAINER_TEST_ID --format="{{.Status}}" --since $TIMESTAMP_FROM --until $TIMESTAMP_TO` || { echo "Unexpected error"; docker logs $CONTAINER_TEST_ID; exit 1; }'
-#    - 'RESULT=`echo -e "$FULL_RESULT" | grep -m 1 "healthy\|unhealthy"` && if echo "$RESULT" | grep ": healthy"; then RESULT="healthy"; else RESULT="unhealthy"; fi || RESULT="timeout"'
-#    - 'docker logs $CONTAINER_TEST_ID; true'
-#    - 'docker inspect $CONTAINER_TEST_ID; true'
-#    - '[ "$RESULT" == "healthy" ] && echo "healthy" || { echo -e "HealthCheck test error, reason: $RESULT\nFull logs:\n$FULL_RESULT"; exit 1; }'
-#
-#    # If the image doesn't run a "service" (change "curl --version" by something usefull)
-#    - docker run $CONTAINER_TEST_IMAGE curl --version
+docker-test-image-job:
+  <<: *job_definition_docker
+  stage: docker-test
+  script:
+
+    # Test by internal health_check (Recommended way, more info https://docs.docker.com/engine/reference/builder/#healthcheck)
+    # This looks complicated but you normally don't have to touch this...
+    - 'CONTAINER_TEST_ID=`docker run -d $CONTAINER_TEST_IMAGE` && echo $CONTAINER_TEST_ID'
+    - 'TIMESTAMP_FROM=$(echo $(( `date +%s` - $DOCKER_HEALTHCHECK_TIMEOUT )))'
+    - 'TIMESTAMP_TO=$(echo $(( `date +%s` + $DOCKER_HEALTHCHECK_TIMEOUT )))'
+    - 'FULL_RESULT=`docker events --filter container=$CONTAINER_TEST_ID --format="{{.Status}}" --since $TIMESTAMP_FROM --until $TIMESTAMP_TO` || { echo "Unexpected error"; docker logs $CONTAINER_TEST_ID; exit 1; }'
+    - 'RESULT=`echo -e "$FULL_RESULT" | grep -m 1 "healthy\|unhealthy"` && if echo "$RESULT" | grep ": healthy"; then RESULT="healthy"; else RESULT="unhealthy"; fi || RESULT="timeout"'
+    - 'docker logs $CONTAINER_TEST_ID; true'
+    - 'docker inspect $CONTAINER_TEST_ID; true'
+    - '[ "$RESULT" == "healthy" ] && echo "healthy" || { echo -e "HealthCheck test error, reason: $RESULT\nFull logs:\n$FULL_RESULT"; exit 1; }'
+
+    # If the image doesn't run a "service" (change "curl --version" by something usefull)
+    #- docker run $CONTAINER_TEST_IMAGE curl --version
 
 
 # Security audit with clair
