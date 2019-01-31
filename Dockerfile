@@ -11,7 +11,12 @@
 
 FROM debian:stretch-slim as builder
 
-LABEL maintainer="Fossology <fossology@fossology.org>"
+LABEL maintainer="opensource-audit-solutions@list.orange.com"
+LABEL Name="Fossology_Orange-OpenSource"
+LABEL Description="Fossology Docker Image"
+LABEL Url="https://gitlab.forge.orange-labs.fr/opensource/fossology/wikis/"
+
+EXPOSE 80
 
 WORKDIR /fossology
 
@@ -50,8 +55,6 @@ RUN make clean install clean
 
 
 FROM debian:stretch-slim
-
-LABEL maintainer="Fossology <fossology@fossology.org>"
 
 ### install dependencies
 COPY --from=builder /fossology/dependencies-for-runtime /fossology
