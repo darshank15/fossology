@@ -111,14 +111,9 @@ docker-build-job:
     - git pull
     - git reset --hard HEAD && git clean -df # Nuke cache issues
     # Merge all Feature branches
-    - git branch --list --verbose -r \
-      "origin/master_dev-orange-feature-*_*" \
-      "origin/master_dev-orange-docker-build"
+    - git branch --list --verbose -r "origin/master_dev-orange-feature-*_*" "origin/master_dev-orange-docker-build"
     # Warning: bug ahead if all branch names do not fit in one xargs call
-    - git branch --list -r \
-      "origin/master_dev-orange-feature-*_*" \
-      "origin/master_dev-orange-docker-build" \
-      | xargs git merge --verbose --no-commit
+    - git branch --list -r "origin/master_dev-orange-feature-*_*" "origin/master_dev-orange-docker-build" | xargs git merge --verbose --no-commit
     ### DOCKER SECTION ###
     - docker pull $CONTAINER_TEST_IMAGE || true
     # Build using cache if exist
