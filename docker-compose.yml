@@ -12,14 +12,7 @@
 version: '3.5'
 services:
   scheduler:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-      - http_proxy
-      - https_proxy
-      - no_proxy
-    image: fossology
+    image: registry.forge.orange-labs.fr/opensource/fossology:master_dev-orange-docker-build
     restart: unless-stopped
     environment:
       - FOSSOLOGY_DB_HOST=db
@@ -32,14 +25,7 @@ services:
     volumes:
       - repository:/srv/fossology/repository/
   web:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-      - http_proxy
-      - https_proxy
-      - no_proxy
-    image: fossology
+    image: registry.forge.orange-labs.fr/opensource/fossology:master_dev-orange-docker-build
     restart: unless-stopped
     environment:
       - FOSSOLOGY_DB_HOST=db
@@ -49,7 +35,7 @@ services:
       - FOSSOLOGY_SCHEDULER_HOST=scheduler
     command: web
     ports:
-      - 8081:80
+      - 80:80
     depends_on:
       - db
       - scheduler
