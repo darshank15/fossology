@@ -10,6 +10,7 @@
 # Description: Docker container image recipe
 
 FROM debian:stretch-slim as builder
+ARG ORANGE_VERSION
 
 LABEL maintainer="opensource-audit-solutions@list.orange.com"
 LABEL Name="Fossology_Orange-OpenSource"
@@ -51,7 +52,7 @@ COPY . .
 
 RUN /fossology/utils/install_composer.sh
 
-RUN make clean install clean
+RUN make VERSION=$ORANGE_VERSION clean install clean
 
 
 FROM debian:stretch-slim
