@@ -74,6 +74,10 @@ stages:
     - '[ -z "$REGISTRY_USER" ] && echo "Registry User is not set or empty (or protected) in Secret Variables" && exit 1'
     - echo $REGISTRY_PASSWORD | docker login $REGISTRY_TEST_URL --username $REGISTRY_USER --password-stdin
     - echo $REGISTRY_PASSWORD | docker login $REGISTRY_RELEASE_URL --username $REGISTRY_USER --password-stdin
+      # Version: Only left part of '-' will be displayed in the web inerface
+      # https://gitlab.forge.orange-labs.fr/opensource/fossology/blob/master_dev-orange/src/www/ui/template/components/menu.html.twig#L23
+    - export ORANGE_VERSION=$(echo "$CI_COMMIT_TAG" | sed 's/^.*_/Orange_V/')
+    - [ -z "ORANGE_VERSION" ] && export ORANGE_VERSION="$(date)"
 
 
 # ==================================================
@@ -117,7 +121,7 @@ docker-build-job:
     ### DOCKER SECTION ###
     - docker pull $CONTAINER_TEST_IMAGE || true
     # Build using cache if exist
-    - set -x ; docker build --cache-from $CONTAINER_TEST_IMAGE --build-arg http_proxy=$http_proxy --build-arg https_proxy=$http_proxy --build-arg no_proxy=$no_proxy --tag $CONTAINER_TEST_IMAGE .
+    - set -x ; docker build --cache-from $CONTAINER_TEST_IMAGE --build-arg ORANGE_VERSION=$ORANGE_VERSION --build-arg http_proxy=$http_proxy --build-arg https_proxy=$http_proxy --build-arg no_proxy=$no_proxy --tag $CONTAINER_TEST_IMAGE .
     - docker push $CONTAINER_TEST_IMAGE
     # Display the size of each layer
     - docker history $CONTAINER_TEST_IMAGE
