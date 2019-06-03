@@ -384,6 +384,10 @@ $dbManager->insertTableRow('sysconfig',
 $dbManager->commit();
 /* email/url/author data migration to other table */
 require_once("$LIBEXECDIR/dbmigrate_copyright-author.php");
+
+/* instance uuid */
+require_once("$LIBEXECDIR/instance_uuid.php");
+
 /* sanity check */
 require_once ("$LIBEXECDIR/sanity_check.php");
 $checker = new SanityChecker($dbManager,$Verbose);
