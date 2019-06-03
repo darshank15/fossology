@@ -65,6 +65,22 @@ services:
       - POSTGRES_INITDB_ARGS='-E SQL_ASCII'
     volumes:
       - database:/var/lib/postgresql/data
+ 
+  cron-db-2:
+    image: crons
+    build:
+      context: ./pbconf/cron-db/
+      args:
+      - http_proxy
+      - https_proxy
+      - no_proxy
+    environment:
+      - FOSSOLOGY_DB_HOST=db
+      - FOSSOLOGY_DB_NAME=fossology
+      - FOSSOLOGY_DB_USER=fossy
+      - FOSSOLOGY_DB_PASSWORD=fossy
+  api:
+    image: dummy:latest
 
 volumes:
   database:
