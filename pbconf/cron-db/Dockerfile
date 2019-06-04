@@ -1,5 +1,5 @@
 FROM postgres:9.6
-RUN apt update && apt-install curl
+RUN apt update && apt install curl -y
 ADD report-uuid.sh /report-uuid.sh
 RUN chmod 0744 /report-uuid.sh
 
