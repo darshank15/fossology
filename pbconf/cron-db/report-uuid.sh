@@ -7,4 +7,4 @@ JSON=`psql -h $FOSSOLOGY_DB_HOST -U $FOSSOLOGY_DB_USER -d $FOSSOLOGY_DB_NAME -A 
 #	SELECT row_to_json(row) FROM (SELECT instance_uuid FROM instance) row;
 #EOF
 
-curl -header "Content-Type: application-json" --request POST --data $JSON http://api:5000
+curl --header "Content-Type: application/json" --request POST --data $JSON http://api:5000
