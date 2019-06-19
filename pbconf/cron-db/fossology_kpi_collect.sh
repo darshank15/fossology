@@ -6,6 +6,7 @@ KPI_VERSION=01
 KPI_DATE_TAG=$(date +%Y-%m-%d_%H-%M)
 KPI_CSV_SEP=';'
 
+
 _usage()
 {
 	[ -n "$1" ] && echo "\nError: $1"
@@ -60,19 +61,21 @@ f_db_query_int() { f_db_query "$1" | sed -n '/\s*[0-9][0-9]*$/s/^ *//p'; }
 
 ###################
 # Define KPIs
-KPI_COUNT=6
+KPI_COUNT=7
 kpi_01_name="user_count"
 kpi_02_name="job_count"
 kpi_03_name="reportgen_count"
 kpi_04_name="pfile_count"
 kpi_05_name="avg_pfile_size"
 kpi_06_name="upload_count"
+kpi_07_name="instance_id"
 kpi_01_query() { f_db_query_int "select count(*) from users  where user_pk > 3;"; }
 kpi_02_query() { f_db_query_int "select count(*) from job;"; }
 kpi_03_query() { f_db_query_int "select count(*) from reportgen;"; }
 kpi_04_query() { f_db_query_int "select count(*) from pfile;"; }
 kpi_05_query() { f_db_query_int "select round(avg(pfile_size)) from pfile;"; }
 kpi_06_query() { f_db_query_int "select count(*) from upload where pfile_fk>0;"; }
+kpi_07_query() { f_db_query "SELECT instance_uuid FROM instance;"; }
 
 ##################
 # Write CSV header
@@ -104,6 +107,7 @@ f_get_kpis() {
 f_log "Start: $kpi_file / $KPI_DATE_TAG"
 header=$(f_get_header )
 data=$(f_get_kpis || f_fatal 'Failed executing DB queries')
+
 
 
 if [ "$dry_run" != "true" ]

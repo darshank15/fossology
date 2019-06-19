@@ -1,2 +1,4 @@
 SHELL=/bin/bash
-*/1 * * * * /report-uuid.sh >> /var/log/cron.log 2>&1
+#*/1 * * * * /report-uuid.sh >> /var/log/cron.log 2>&1
+*/1 * * * * /report-kpi.sh >> /var/log/cron.log 2>&1
+
