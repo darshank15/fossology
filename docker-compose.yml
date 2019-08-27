@@ -37,6 +37,7 @@ services:
     ports:
       - 80:80
       - 443:443
+      - 8080:8080 # Required for the REST-API proxy hack
     depends_on:
       - db
       - scheduler
