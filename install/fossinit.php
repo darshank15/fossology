@@ -389,6 +389,9 @@ require_once("$LIBEXECDIR/dbmigrate_copyright-author.php");
 require_once("$LIBEXECDIR/dbmigrate_3.6-3.7.php");
 Migrate_36_37($dbManager, $Verbose);
 
+/* instance uuid */
+require_once("$LIBEXECDIR/instance_uuid.php");
+
 /* sanity check */
 require_once ("$LIBEXECDIR/sanity_check.php");
 $checker = new SanityChecker($dbManager,$Verbose);
