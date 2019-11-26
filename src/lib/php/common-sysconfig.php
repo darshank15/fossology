@@ -380,6 +380,19 @@ function Populate_sysconfig()
   $valueArray[$variable] = array("'$variable'", "30", "'$patTokenValidityPrompt'",
     strval(CONFIG_TYPE_INT), "'PAT'", "1", "'$patTokenValidityDesc'", "null", "null");
 
+  $variable = "ReportingAPIUrl";
+  $reportingApiUrlPropmpt = _('Reporting Endpoint URL');
+  $reportingApiUrlDesc = _('Set the statistc reporting endpoint. Disabled if empty.');
+  $valueArray[$variable] = array("'$variable'", "null", "'$reportingApiUrlPropmpt'",
+    strval(CONFIG_TYPE_TEXT), "'ReportingAPI'", "1", "'$reportingApiUrlDesc'", "null", "null");
+
+
+  // $variable = "ReportingAPIUUID";
+  // $reportingApiUrlPropmpt = _('Reporting API UUID');
+  // $reportingApiUrlDesc = _('Set the statistc reporting endpoint. Disabled if empty.');
+  // $valueArray[$variable] = array("'$variable'", "null", "'$reportingApiUrlPropmpt'",
+  //   strval(CONFIG_TYPE_TEXT), "'ReportingAPI'", "1", "'$reportingApiUrlDesc'", "null", "null");
+
   /* Doing all the rows as a single insert will fail if any row is a dupe.
    So insert each one individually so that new variables get added.
   */
