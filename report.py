@@ -11,10 +11,10 @@ import psycopg2
 DB_CONFIG_FILE = "/usr/local/etc/fossology/Db.conf"
 
 # GRAPHITE SETTINGS
-GRAPHITE_HOST = os.environ.get("GRAPTHITE_HOST", "localhost")
+GRAPHITE_HOST = os.environ.get("GRAPTHITE_HOST", "graphite")
 GRAPHITE_PORT = os.environ.get("GRAPHITE_PORT", 2004)
 # true only if envvar==True|1
-PICKLE_SEND = bool(os.environ.get("PICKLE_SEND", "False") in ["True", "1"])
+PICKLE_SEND = bool(os.environ.get("PICKLE_SEND", "True") in ["True", "1"])
 
 CONFIG = {}
 # parse DB_CONFIG_FILE
@@ -132,7 +132,9 @@ if __name__ == "__main__":
     if PICKLE_SEND:
         import pickle
         import struct
-        tpls = [tuple(x.split(" ")) for x in results]
+        timestamp = time.time()
+        pre_tuples = [x.split(" ") for x in results]
+        tpls = [tuple([t[0], (time.time(), t[1])]) for t in pre_tuples]
         payload = pickle.dumps(tpls, protocol=2)
         header = struct.pack("!L", len(payload))
         message = header + payload
