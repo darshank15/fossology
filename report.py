@@ -8,7 +8,7 @@ import psycopg2
 
 
 # Fossology DB configuration file
-DB_CONFIG_FILE = "/usr/local/etc/fossology/Db.conf"
+DB_CONFIG_FILE = os.environ.get("DB_CONFIG_FILE","/usr/local/etc/fossology/Db.conf")
 
 # GRAPHITE SETTINGS
 GRAPHITE_HOST = os.environ.get("GRAPTHITE_HOST", "graphite")
@@ -42,11 +42,10 @@ def report(connection):
     for query in [
             "number_of_users", "number_of_groups", "number_of_file_uploads",
             "number_of_projects__theoretically", "number_of_url_uploads",
-            "agents_count"]:
+            "agents_count", "number_of_upload_status", "number_of_projects_per_size"]:
         result = _query(connection, QUERIES[query])
         _result[query] = result if len(result) > 1 else result[0]
     return _result
-
 
 QUERIES = {
     'uuid': "SELECT instance_uuid uuid FROM instance;",
@@ -55,7 +54,9 @@ QUERIES = {
     'number_of_projects__theoretically': "SELECT count(up.*) as uploads from (select distinct upload_mode, upload_origin from upload) up;",
     'number_of_file_uploads': "SELECT count(up1.upload_origin) as file_uploads FROM upload up1 WHERE up1.upload_mode = 104;",
     'number_of_url_uploads': "SELECT count(up2.upload_origin) as url_uploads FROM upload up2 WHERE up2.upload_mode = 100;",
-    'agents_count': "SELECT ag.agent_name,count(jq.*) AS fired_jobs FROM agent ag LEFT OUTER JOIN jobqueue jq ON (jq.jq_type = ag.agent_name) GROUP BY ag.agent_name ORDER BY fired_jobs DESC;"
+    'agents_count': "SELECT ag.agent_name,count(jq.*) AS fired_jobs FROM agent ag LEFT OUTER JOIN jobqueue jq ON (jq.jq_type = ag.agent_name) GROUP BY ag.agent_name ORDER BY fired_jobs DESC;",
+    'number_of_upload_status': "select CASE WHEN a.status=1 THEN 'open' WHEN a.status=2 THEN 'in_progres' WHEN a.status=3 THEN 'closed' WHEN a.status=3 THEN 'rejected' ELSE 'unknown' END status, a.count from (select status_fk status, count(1) as count from upload_clearing group by status_fk) a;",
+    'number_of_projects_per_size': "select t.size, count(t.size) from (select CASE WHEN s.sx<2000 THEN 'small' WHEN s.sx>=2000 and s.sx<10000 THEN 'normal' ELSE 'big' END size from (select count(ut.ufile_name) sx from uploadtree ut group by upload_fk) s) t group by t.size;"
     }
 
 
@@ -141,5 +142,5 @@ if __name__ == "__main__":
 
         send(GRAPHITE_HOST, GRAPHITE_PORT, message)
 
-# example usage:
+# example usage with text output:
 # python report.py |xargs -I % sh -c "echo % >>out"
