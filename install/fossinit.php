@@ -392,6 +392,9 @@ Migrate_36_37($dbManager, $Verbose);
 /* instance uuid */
 require_once("$LIBEXECDIR/instance_uuid.php");
 
+/* instance uuid */
+require_once("$LIBEXECDIR/instance_uuid.php");
+
 /* sanity check */
 require_once ("$LIBEXECDIR/sanity_check.php");
 $checker = new SanityChecker($dbManager,$Verbose);
