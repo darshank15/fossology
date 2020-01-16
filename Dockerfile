@@ -63,6 +63,8 @@ COPY --from=builder /fossology/dependencies-for-runtime /fossology
 WORKDIR /fossology
 
 # Fix for Postgres and other packages in slim variant
+# Note: cron, python, python-psycopg2 are installed 
+#       specifically for metrics reporting
 RUN mkdir /usr/share/man/man1 /usr/share/man/man7 \
  && DEBIAN_FRONTEND=noninteractive apt-get update \
  && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y \
@@ -72,6 +74,7 @@ RUN mkdir /usr/share/man/man1 /usr/share/man/man7 \
       sudo \
       vim \
       tmux \
+      cron python python-psycopg2 \
  && DEBIAN_FRONTEND=noninteractive /fossology/utils/fo-installdeps --offline --runtime -y \
  && DEBIAN_FRONTEND=noninteractive apt-get purge -y lsb-release \
  && DEBIAN_FRONTEND=noninteractive apt-get autoremove -y \
