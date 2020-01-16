@@ -74,10 +74,7 @@ stages:
     - '[ -z "$REGISTRY_USER" ] && echo "Registry User is not set or empty (or protected) in Secret Variables" && exit 1'
     - echo $REGISTRY_PASSWORD | docker login $REGISTRY_TEST_URL --username $REGISTRY_USER --password-stdin
     - echo $REGISTRY_PASSWORD | docker login $REGISTRY_RELEASE_URL --username $REGISTRY_USER --password-stdin
-      # Version: Only left part of '-' will be displayed in the web inerface
-      # https://gitlab.forge.orange-labs.fr/opensource/fossology/blob/master_dev-orange/src/www/ui/template/components/menu.html.twig#L23
-      # Explictely cut VERSION at 23 chars, see https://github.com/fossology/fossology/issues/1322
-    - export ORANGE_VERSION=$(echo "$CI_COMMIT_TAG" | sed 's/^.*_/Orange_V/' | cut -c -23)
+    - export ORANGE_VERSION="$CI_COMMIT_TAG"
     - '[ -z "$ORANGE_VERSION" ] && export ORANGE_VERSION="Build_$(date +%y/%m/%d_%H:%M:%S)"'
     - echo "ORANGE_VERSION=$ORANGE_VERSION"
 
@@ -112,14 +109,12 @@ docker-build-job:
     - apk update && apk add git
     - git config user.email "$CI_REGISTRY_USER@$CI_REGISTRY"
     - git config user.name "$CI_PROJECT_PATH_SLUG $CI_COMMIT_REF_SLUG"
-    - git branch --list -r "origin/master_dev-orange*"
-    - git checkout "master_dev-orange"
+    - git branch --list -r "origin/o-master/feat/*"
+    - git checkout "o-master/docker-deploy"
     - git pull
     - git reset --hard HEAD && git clean -df # Nuke cache issues
-    # Merge all Feature branches
-    - git branch --list --verbose -r "origin/master_dev-orange-feature-*_*" "origin/master_dev-orange-docker-build"
     # Warning: bug ahead if all branch names do not fit in one xargs call
-    - git branch --list -r "origin/master_dev-orange-feature-*_*" "origin/master_dev-orange-docker-build" | xargs git merge --verbose --no-commit
+    - git branch --list -r "origin/o-master/feat/*" | xargs git merge --verbose --no-commit
     ### DOCKER SECTION ###
     - docker pull $CONTAINER_TEST_IMAGE || true
     # Build using cache if exist
