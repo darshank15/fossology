@@ -169,16 +169,25 @@ docker-audit-clair-job:
 # Stage: docker-release
 # ==================================================
 
+# DQXN4211, 02/02/2020
+# Commenting the Docker release job on tag creation, 
+#  because all docker images are tagged according to
+#  the git Tag name if any
+# On top of it, '$CONTAINER_RELEASE_IMAGE' does not evaluate correctly
+#  (double variable indirection fails) -> push fails as it is 
+
 # This stage only run when you put a new tag to the git repository (a good tag format would be x.x.x ex: 1.0.1, see https://semver.org/)
 # It will push the release tagged image to the chosen Registry
-docker-release-job:
-  <<: *job_definition_docker
-  stage: docker-release
-  script:
-    - 'echo DEBUG: docker tag $CONTAINER_TEST_IMAGE $CONTAINER_RELEASE_IMAGE / ORANGE_VERSION=$ORANGE_VERSION'
-    - docker pull $CONTAINER_TEST_IMAGE
-    - docker tag $CONTAINER_TEST_IMAGE $CONTAINER_RELEASE_IMAGE
-    - docker push $CONTAINER_RELEASE_IMAGE
-    - 'echo Well done! your image is published and can be downloaded by doing: docker pull $CONTAINER_RELEASE_IMAGE'
-  only:
-    - tags
+#docker-release-job:
+#  <<: *job_definition_docker
+#  stage: docker-release
+#  script:
+#    - 'echo DEBUG: $CONTAINER_TEST_IMAGE $CONTAINER_RELEASE_IMAGE'
+#    - 'echo DEBUG: ORANGE_VERSION=$ORANGE_VERSION'
+#    - 'echo DEBUG: CONTAINER_RELEASE_IMAGE=$CONTAINER_RELEASE_IMAGE'
+#    - docker pull $CONTAINER_TEST_IMAGE
+#    - docker tag $CONTAINER_TEST_IMAGE $CONTAINER_RELEASE_IMAGE
+#    - docker push $CONTAINER_RELEASE_IMAGE
+#    - 'echo Well done! your image is published and can be downloaded by doing: docker pull $CONTAINER_RELEASE_IMAGE'
+#  only:
+#    - tags
