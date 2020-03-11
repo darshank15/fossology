@@ -20,6 +20,7 @@ VERSION
 .vagrant/
 *.orig
 .#*
+tags
 
 # compiled or derived files
 install/db/dbcreate
@@ -160,6 +161,7 @@ src/reportImport/agent/reportImport
 /src/softwareHeritage/VERSION
 src/delagent/agent_tests/Unit/test_delagent
 src/delagent/agent_tests/Unit/testconf/
+/utils/fo_unicode_clean
 
 # Add all the Ubuntu consol log file
 ubuntu-*
