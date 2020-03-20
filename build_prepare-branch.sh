@@ -19,7 +19,7 @@ echo "Processing: '$branch'"
 if echo "$branch" | grep -q ".*/$docker_deploy"
 then
     # Classic 
-    branch_root=$(echo "$branch" | sed '!/.*$!!')
+    branch_root=$(echo "$branch" | sed 's!/.*$!!')
     echo "Perform Octopus merge for '$branch_root'"
     git branch --list -r "origin/$branch_root/feat/*"
     git branch --list -r "origin/$branch_root/feat/*" | \
