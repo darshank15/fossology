@@ -99,60 +99,30 @@ void DBLoadGold()
   long PfileKey;
   char *Path;
   char SHA256[65];
-  char *cmd;
   FILE *Fin;
-  int rc = -1, i;
+  int rc = -1;
   PGresult *result;
-  int read = 0;
-  int res;
-
   memset(SHA256, '\0', sizeof(SHA256));
 
   LOG_VERBOSE0("Processing %s",GlobalTempFile);
   Fin = fopen(GlobalTempFile,"rb");
-
-  // Calculate sha256 value
-  res = asprintf(&cmd, "sha256sum '%s'", GlobalTempFile);
-  if (res == -1)
-  {
-    SafeExit(ASPRINTF_MEM_ERROR);
-  }
-
   if (!Fin)
   {
     LOG_FATAL("upload %ld Unable to open temp file %s from %s",
         GlobalUploadKey,GlobalTempFile,GlobalURL);
     SafeExit(1);
   }
-  
-  FILE* file = popen(cmd, "r");
 
-  if (!file)
-  {
-    LOG_FATAL("Unable to get SHA256 from command %s\n", cmd);
-    free(cmd);
-    SafeExit(56);
-  }
+  Sum = SumComputeFile(Fin);
+  fclose(Fin);
 
-  free(cmd);
-
-  read = fscanf(file, "%64s", SHA256);
-  rc = WEXITSTATUS(pclose(file));
-
-  if (rc || read != 1)
+  // Calculate sha256 value
+  rc = calc_sha256sum(GlobalTempFile, SHA256);
+  if (rc != 0)
   {
     LOG_FATAL("Unable to calculate SHA256 of %s\n", GlobalTempFile);
     SafeExit(56);
   }
-
-  // Change SHA256 to upper case like other checksums
-  for (i = 0; i < 65; i++)
-  {
-    SHA256[i] = toupper(SHA256[i]);
-  }
-
-  Sum = SumComputeFile(Fin);
-  fclose(Fin);
 
   if ((int)ForceGroup > 0)
   {
@@ -1058,6 +1028,7 @@ void replace_url_with_auth()
   char URI[FILEPATH] = "";
   char *token = NULL;
   char *temp = NULL;
+  char *additionalParams = NULL;
 
   if (strstr(GlobalParam, "password") && strstr(GlobalParam, "username"))
   {
@@ -1079,12 +1050,22 @@ void replace_url_with_auth()
     while( token != NULL )
     {
       if (1 == index) username = token;
-      if (3 == index) password = token;
+      if (3 == index) {
+        password = token;
+        additionalParams = token + strlen(token) + 1;
+        break;
+      }
       token = strtok(NULL, needle);
       index++;
     }
     snprintf(GlobalURL, URLMAX, "%s%s:%s@%s", http, username, password, URI);
-    memset(GlobalParam,'\0',STRMAX);
+
+    if (strlen(additionalParams) > 0) {
+      memmove(GlobalParam, additionalParams, strlen(additionalParams) +1);
+    } 
+    else {
+      memset(GlobalParam,'\0',STRMAX);
+    }
   }
 }
 

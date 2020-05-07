@@ -29,7 +29,6 @@ use Psr\Http\Message\ServerRequestInterface;
 use Fossology\UI\Api\Helper\UploadHelper\HelperToUploadFilePage;
 use Fossology\UI\Api\Helper\UploadHelper\HelperToUploadVcsPage;
 use Fossology\UI\Api\Models\UploadSummary;
-use Fossology\UI\Page\BrowseLicense;
 use Fossology\Lib\Db\DbManager;
 use Fossology\Lib\Proxy\ScanJobProxy;
 use Fossology\Lib\Dao\AgentDao;
@@ -174,6 +173,7 @@ class UploadHelper
     $vcsName = $vcsData["vcsName"];
     $vcsUsername = $vcsData["vcsUsername"];
     $vcsPasswd = $vcsData["vcsPassword"];
+    $vcsBranch = $vcsData["vcsBranch"];
 
     $symfonySession = $GLOBALS['container']->get('session');
     $symfonySession->set($this->uploadVcsPage::UPLOAD_FORM_BUILD_PARAMETER_NAME,
@@ -194,6 +194,7 @@ class UploadHelper
     $symfonyRequest->request->set('vcstype', $vcsType);
     $symfonyRequest->request->set('username', $vcsUsername);
     $symfonyRequest->request->set('passwd', $vcsPasswd);
+    $symfonyRequest->request->set('branch', $vcsBranch);
     $symfonyRequest->request->set('scm', $ignoreScm);
 
     return $this->uploadVcsPage->handleRequest($symfonyRequest);
@@ -244,6 +245,9 @@ class UploadHelper
     if (! array_key_exists("vcsPassword", $vcsData)) {
       $vcsData["vcsPassword"] = "";
     }
+    if (! array_key_exists("vcsBranch", $vcsData)) {
+      $vcsData["vcsBranch"] = "";
+    }
     $vcsData["vcsType"] = $vcsType;
     if ($code !== 0) {
       return array(false, $message, $statusDescription, $code);
@@ -289,7 +293,7 @@ class UploadHelper
 
     $mainLicenses = $this->getMainLicenses($dbManager, $uploadId, $groupId);
 
-    $uiLicense = new BrowseLicense();
+    $uiLicense = $restHelper->getPlugin("license");
     $hist = $uiLicense->getUploadHist($itemTreeBounds);
 
     $summary = new UploadSummary();

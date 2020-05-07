@@ -49,6 +49,7 @@ addons:
       - unrar-free
       - upx-ucl
       - libicu-dev
+      - libgcrypt20-dev
 
 services: postgresql
 
@@ -197,7 +198,8 @@ jobs:
         - bash utils/deploy-pages.sh
       deploy:
         provider: pages
-        cleanup: true
+        cleanup: false
+        skip_cleanup: true
         token: $GITHUB_TOKEN
         keep_history: false
         local_dir: ./code_docs
