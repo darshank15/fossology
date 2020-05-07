@@ -20,7 +20,7 @@ along with this library; if not, write to the Free Software Foundation, Inc.0
  \brief Common libpq database functions.
  */
 
-#define ERRBUFSIZE 1024
+#define ERRBUFSIZE 11264
 
 #include "libfossdb.h"
 
@@ -257,3 +257,4 @@ int fo_tableExists(PGconn* pgConn, const char* tableName)
   PQclear(result);
   return (TabCount);
 } /* fo_tableExists()  */
+

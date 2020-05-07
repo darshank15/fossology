@@ -69,6 +69,7 @@ use Fossology\Lib\Proxy\ScanJobProxy;
 use Fossology\Lib\Proxy\UploadTreeProxy;
 use Fossology\Lib\Dao\LicenseDao;
 use Fossology\Lib\Data\License;
+use Fossology\Lib\Data\AgentRef;
 
 include_once(__DIR__ . "/spdx2utils.php");
 
@@ -114,7 +115,7 @@ class SpdxTwoAgent extends Agent
   /** @var array $agentNames
    * Agent names mapping
    */
-  protected $agentNames = array('nomos' => 'N', 'monk' => 'M', 'ninka' => 'Nk', 'reportImport' => 'I');
+  protected $agentNames = AgentRef::AGENT_LIST;
   /** @var array $includedLicenseIds
    * License ids included
    */
@@ -346,6 +347,7 @@ class SpdxTwoAgent extends Agent
         'uploadName' => $upload->getFilename(),
         'sha1' => $hashes['sha1'],
         'md5' => $hashes['md5'],
+        'sha256' => $hashes['sha256'],
         'verificationCode' => $this->getVerificationCode($upload),
         'mainLicenses' => $mainLicenses,
         'mainLicense' => SpdxTwoUtils::implodeLicenses($mainLicenses, $this->spdxValidityChecker),
@@ -527,9 +529,13 @@ class SpdxTwoAgent extends Agent
     /* @var $copyrightDao CopyrightDao */
     $copyrightDao = $this->container->get('dao.copyright');
     $uploadtreeTable = $this->uploadDao->getUploadtreeTableName($uploadId);
-    $allEntries = $copyrightDao->getAllEntries('copyright', $uploadId, $uploadtreeTable, $type='statement');
-    foreach ($allEntries as $finding) {
+    $allScannerEntries = $copyrightDao->getScannerEntries('copyright', $uploadtreeTable, $uploadId, $type='statement', $extrawhere=null);
+    $allEditedEntries = $copyrightDao->getEditedEntries('copyright_decision', $uploadtreeTable, $uploadId, $decisionType=null);
+    foreach ($allScannerEntries as $finding) {
       $filesWithLicenses[$finding['uploadtree_pk']]['copyrights'][] = \convertToUTF8($finding['content'],false);
+    }
+    foreach ($allEditedEntries as $finding) {
+      $filesWithLicenses[$finding['uploadtree_pk']]['copyrights'][] = \convertToUTF8($finding['textfinding'],false);
     }
   }
 
@@ -685,6 +691,7 @@ class SpdxTwoAgent extends Agent
           'fileId' => $fileId,
           'sha1' => $hashes['sha1'],
           'md5' => $hashes['md5'],
+          'sha256' => $hashes['sha256'],
           'uri' => $this->uri,
           'fileName' => $fileName,
           'fileDirName' => dirname($fileName),

@@ -20,7 +20,7 @@
   <br/>
   <select name="{{ vcstypeField }}">
     <option value='SVN'>SVN</option>
-    <option value='Git'>Git</option>
+    <option value='Git' selected>Git</option>
   </select>
 </li>
 <li>
@@ -30,6 +30,13 @@
   <br/>
   <input name="{{ geturlField }}" type="text" size="120" value="http://"/><br/>
   The URL can begin with HTTP://, HTTPS:// . When do git upload, if https url fails, please try http URL.
+</li>
+<li>
+  <label for="{{ branchField }}">
+    {{ '(Optional for Git) Branch name'| trans }}:
+  </label>
+  <br/>
+  <input name="{{ branchField }}" type="text" size="60"/><br/>
 </li>
 <li>
   <label for="{{ usernameField }}">

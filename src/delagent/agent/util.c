@@ -137,7 +137,8 @@ int authentication(char *user, char *password, int *userId, int *userPerm)
   if (user_seed[0] && pass_hash_valid[0])
   {
     strcat(user_seed, password);  // get the hash code on seed+pass
-    SHA1((unsigned char *)user_seed, strlen(user_seed), pass_hash_actual_raw);
+    gcry_md_hash_buffer(GCRY_MD_SHA1, pass_hash_actual_raw, user_seed,
+      strlen(user_seed));
   }
   else
   {
@@ -386,7 +387,7 @@ int deleteUpload (long uploadId, int userId, int userPerm)
   PQexecCheckClear("Deleting tag_uploadtree", SQL, __FILE__, __LINE__);
 
   /* Delete uploadtree_nnn table */
-  char uploadtree_tablename[1024];
+  char uploadtree_tablename[1000];
   snprintf(SQL,MAXSQL,"SELECT uploadtree_tablename FROM upload WHERE upload_pk = %ld;",uploadId);
   result = PQexec(pgConn, SQL);
   if (fo_checkPQresult(pgConn, result, SQL, __FILE__, __LINE__)) {
@@ -420,6 +421,11 @@ int deleteUpload (long uploadId, int userId, int userPerm)
 
   snprintf(SQL,MAXSQL,"DROP TABLE %s;",tempTable);
   PQexecCheckClear(NULL, SQL, __FILE__, __LINE__);
+
+  /* Mark upload deleted in upload table */
+  snprintf(SQL,MAXSQL,"UPDATE upload SET expire_action = 'd', "
+      "expire_date = now(), pfile_fk = NULL WHERE upload_pk = %ld;", uploadId);
+  PQexecCheckClear("Marking upload as deleted", SQL, __FILE__, __LINE__);
 
   PQexecCheckClear(NULL, "SET statement_timeout = 120000;", __FILE__, __LINE__);
 

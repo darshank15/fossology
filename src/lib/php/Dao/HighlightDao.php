@@ -133,8 +133,10 @@ class HighlightDao
     $uploadTreeTableName = $itemTreeBounds->getUploadTreeTableName();
     $stmt = __METHOD__.$uploadTreeTableName;
     $sql = "SELECT start,len
-             FROM highlight_keyword
-             WHERE pfile_fk = (SELECT pfile_fk FROM $uploadTreeTableName WHERE uploadtree_pk = $1)";
+            FROM highlight_keyword AS hk
+            INNER JOIN $uploadTreeTableName AS ut
+            ON hk.pfile_fk = ut.pfile_fk
+            WHERE ut.uploadtree_pk = $1";
     $this->dbManager->prepare($stmt, $sql);
     $result = $this->dbManager->execute($stmt, array($itemTreeBounds->getItemId()));
     $highlightEntries = array();
@@ -195,5 +197,25 @@ class HighlightDao
     $highlightBulk = $this->getHighlightBulk($itemTreeBounds->getItemId(), $clearingId);
     $highlightEntries = array_merge(array_merge($highlightDiffs,$highlightKeywords),$highlightBulk);
     return $highlightEntries;
+  }
+
+  /**
+   * @param licenseMatchId
+   * @return page number
+   */
+  public function getPageNumberOfHighlightEntry($licenseMatchId)
+  {
+    $row = $this->dbManager->getSingleRow(
+      "SELECT FLOOR(
+                (
+                  SELECT start FROM highlight WHERE fl_fk=$1 ORDER BY start ASC LIMIT 1
+                ) / (
+                  SELECT conf_value FROM sysconfig WHERE variablename LIKE 'BlockSizeText'
+                )::numeric
+              )
+       AS page;",
+      array($licenseMatchId)
+    );
+    return $row['page'];
   }
 }

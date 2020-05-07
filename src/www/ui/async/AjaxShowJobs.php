@@ -159,7 +159,7 @@ class AjaxShowJobs extends \FO_Plugin
           }
           if (filesize($row[$field]) > self::MAX_LOG_OUTPUT) {
             $value = "<pre>" .file_get_contents($row[$field],false,null,-1,self::MAX_LOG_OUTPUT)."</pre>"
-                    .'<a href="'.Traceback_uri() . '?mod=download&log=' . $row['jq_pk'] . '">...</a>';
+                    .'<a href="'.Traceback_uri() . '?mod=download&log=' . $row['jq_pk'] . '">Download full log</a>';
           } else {
             $value = "<pre>" . file_get_contents($row[$field]). "</pre>";
           }
@@ -293,7 +293,7 @@ class AjaxShowJobs extends \FO_Plugin
           'uploadName' => $jobs['upload']['upload_filename'],
           'uploadId' => $jobs['upload']['upload_pk'],
           'uploadDesc' => $jobs['upload']['upload_desc'],
-          'uploadItem' => $jobs['uploadtree']['uploadtree_pk'],
+          'uploadItem' => empty($jobs['uploadtree']) ? -1 : $jobs['uploadtree']['uploadtree_pk'],
           'uploadEta' => $this->showJobsDao->getEstimatedTime($jobs['job']['job_pk'], '', 0, $jobs['upload']['upload_pk'])
         );
       } else {

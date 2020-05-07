@@ -34,6 +34,7 @@ use Fossology\UI\Api\Models\Upload;
 use Fossology\UI\Api\Models\InfoType;
 use Fossology\UI\Api\Models\Info;
 use Fossology\Lib\Db\DbManager;
+use Fossology\Lib\Auth\Auth;
 
 /**
  * @class DbHelper
@@ -86,8 +87,10 @@ FROM upload
 INNER JOIN folderlist ON folderlist.upload_pk = upload.upload_pk
 INNER JOIN folder ON folder.folder_pk = folderlist.parent
 INNER JOIN pfile ON pfile.pfile_pk = upload.pfile_fk
-WHERE upload.user_fk = " . pg_escape_string($userId) . "
+WHERE upload.user_fk = $1
 ORDER BY upload.upload_pk;";
+      $statementName = __METHOD__ . ".getAllUploads";
+      $params = [$userId];
     } else {
       $sql = "SELECT
 upload.upload_pk, upload.upload_desc, upload.upload_ts, upload.upload_filename,
@@ -96,12 +99,13 @@ FROM upload
 INNER JOIN folderlist ON folderlist.upload_pk = upload.upload_pk
 INNER JOIN folder ON folder.folder_pk = folderlist.parent
 INNER JOIN pfile ON pfile.pfile_pk = upload.pfile_fk
-WHERE upload.user_fk = " . pg_escape_string($userId) . "
-AND upload.upload_pk = " . pg_escape_string($uploadId) . "
+WHERE upload.user_fk = $1
+AND upload.upload_pk = $2
 ORDER BY upload.upload_pk;";
+      $statementName = __METHOD__ . ".getSpecificUpload";
+      $params = [$userId,$uploadId];
     }
-
-    $result = $this->dbManager->getRows($sql);
+    $result = $this->dbManager->getRows($sql, $params, $statementName);
     $uploads = [];
     foreach ($result as $row) {
       $upload = new Upload($row["folder_pk"], $row["folder_name"],
@@ -173,12 +177,22 @@ FROM $tableName WHERE $idRowName= " . pg_escape_string($id))["count"])));
     if ($id === null) {
       $result = $result = $this->dbManager->getRows($usersSQL, [], $statement);
     } else {
-      $result = $result = $this->dbManager->getRows($usersSQL, [$id], $statement);
+      $result = $result = $this->dbManager->getRows($usersSQL, [$id],
+        $statement);
     }
+    $currentUser = Auth::getUserId();
+    $userIsAdmin = Auth::isAdmin();
     foreach ($result as $row) {
-      $user = new User($row["user_pk"], $row["user_name"], $row["user_desc"],
-        $row["user_email"], $row["user_perm"], $row["root_folder_fk"],
-        $row["email_notify"], $row["user_agent_list"]);
+      $user = null;
+      if ($userIsAdmin ||
+        ($row["user_pk"] == $currentUser)) {
+        $user = new User($row["user_pk"], $row["user_name"], $row["user_desc"],
+          $row["user_email"], $row["user_perm"], $row["root_folder_fk"],
+          $row["email_notify"], $row["user_agent_list"]);
+      } else {
+        $user = new User($row["user_pk"], $row["user_name"], $row["user_desc"],
+          null, null, null, null, null);
+      }
       $users[] = $user->getArray();
     }
 
@@ -190,31 +204,70 @@ FROM $tableName WHERE $idRowName= " . pg_escape_string($id))["count"])));
    *
    * If a limit is passed, the results are trimmed. If an ID is passed, the
    * information for the given id is only retrieved.
-   * @param integer $limit Set to limit the result length
-   * @param integer $id Set to get information of only given job id
-   * @return Job[][] Jobs as an associative array
+   *
+   * @param integer $id       Set to get information of only given job id
+   * @param integer $limit    Set to limit the result length
+   * @param integer $page     Page number required
+   * @param integer $uploadId Upload ID to be filtered
+   * @return array[] List of jobs at first index and total number of pages at
+   *         second.
    */
-  public function getJobs($limit = 0, $id = null)
+  public function getJobs($id = null, $limit = 0, $page = 1, $uploadId = null)
   {
+    $jobSQL = "SELECT job_pk, job_queued, job_name, job_upload_fk," .
+      " job_user_fk, job_group_fk FROM job";
+    $totalJobSql = "SELECT count(*) AS cnt FROM job";
+
+    $filter = "";
+    $pagination = "";
+
+    $params = [];
+    $statement = __METHOD__ . ".getJobs";
+    $countStatement = __METHOD__ . ".getJobCount";
     if ($id == null) {
-      $jobSQL = "SELECT job_pk, job_queued, job_name, job_upload_fk, job_user_fk, job_group_fk FROM job";
+      if ($uploadId !== null) {
+        $params[] = $uploadId;
+        $filter = "WHERE job_upload_fk = $" . count($params);
+        $statement .= ".withUploadFilter";
+        $countStatement .= ".withUploadFilter";
+      }
     } else {
-      $jobSQL = "SELECT job_pk, job_queued, job_name, job_upload_fk, job_user_fk, job_group_fk
-                FROM job WHERE job_pk=" . pg_escape_string($id);
+      $params[] = $id;
+      $filter = "WHERE job_pk = $" . count($params);
+      $statement .= ".withJobFilter";
+      $countStatement .= ".withJobFilter";
     }
 
+    $result = $this->dbManager->getSingleRow("$totalJobSql $filter;", $params,
+      $countStatement);
+
+    $totalResult = $result['cnt'];
+
+    $offset = ($page - 1) * $limit;
     if ($limit > 0) {
-      $jobSQL .= " LIMIT " . pg_escape_string($limit);
+      $params[] = $limit;
+      $pagination = "LIMIT $" . count($params);
+      $params[] = $offset;
+      $pagination .= " OFFSET $" . count($params);
+      $statement .= ".withLimit";
+      $totalResult = floor($totalResult / $limit) + 1;
+    } else {
+      $totalResult = 1;
     }
 
     $jobs = [];
-    $result = $this->dbManager->getRows($jobSQL);
+    $result = $this->dbManager->getRows("$jobSQL $filter $pagination;", $params,
+      $statement);
     foreach ($result as $row) {
-      $job = new Job($row["job_pk"], $row["job_name"], $row["job_queued"],
-        $row["job_upload_fk"], $row["job_user_fk"], $row["job_group_fk"]);
-      $jobs[] = $job->getArray();
+      $job = new Job($row["job_pk"]);
+      $job->setName($row["job_name"]);
+      $job->setQueueDate($row["job_queued"]);
+      $job->setUploadId($row["job_upload_fk"]);
+      $job->setUserId($row["job_user_fk"]);
+      $job->setGroupId($row["job_group_fk"]);
+      $jobs[] = $job;
     }
-    return $jobs;
+    return [$jobs, $totalResult];
   }
 
   /**

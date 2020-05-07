@@ -51,6 +51,7 @@ class UploadVcsPage extends UploadPageBase
     $vars['usernameField'] = 'username';
     $vars['passwdField'] = 'passwd';
     $vars['geturlField'] = self::GETURL_PARAM;
+    $vars['branchField'] = 'branch';
     $vars['nameField'] = 'name';
     $this->renderer->clearTemplateCache();
     $this->renderer->clearCacheFiles();
@@ -135,7 +136,12 @@ class UploadVcsPage extends UploadPageBase
     $Passwd = trim($request->get('passwd'));
     $Passwd = $this->basicShEscaping($Passwd);
     if (!empty($Passwd)) {
-      $jq_args .= "--password $Passwd";
+      $jq_args .= "--password $Passwd ";
+    }
+
+    $Branch = trim(explode(' ',trim($request->get('branch')))[0]);
+    if (!empty($Branch) && strcasecmp($VCSType,'git') == 0) {
+      $jq_args .= "--single-branch --branch '$Branch'";
     }
 
     $jobqueuepk = JobQueueAdd($jobpk, "wget_agent", $jq_args, NULL, NULL);
@@ -145,7 +151,7 @@ class UploadVcsPage extends UploadPageBase
     }
     /* schedule agents */
     $unpackplugin = &$Plugins[plugin_find_id("agent_unpack") ];
-    $unpackArgs = intval($request->get('scm') == 1) ? '-I' : '';
+    $unpackArgs = intval($request->get('scm')) == 1 ? '-I' : '';
     $ununpack_jq_pk = $unpackplugin->AgentAdd($jobpk, $uploadId, $ErrorMsg, array("wget_agent"), $unpackArgs);
     if ($ununpack_jq_pk < 0) {
       return array(false, _($ErrorMsg), $description);
@@ -170,7 +176,7 @@ class UploadVcsPage extends UploadPageBase
     $text1 = _("has been queued. It is");
     $msg .= "$text $Name $text1 ";
     $keep =  "<a href='$Url'>upload #" . $uploadId . "</a>.\n";
-    return array(true, $msg.$keep, $description);
+    return array(true, $msg.$keep, $description, $uploadId);
   }
 }
 

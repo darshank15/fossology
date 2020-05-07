@@ -22,6 +22,7 @@ use Fossology\Lib\BusinessRules\LicenseMap;
 use Fossology\Lib\Data\DecisionScopes;
 use Fossology\Lib\Data\DecisionTypes;
 use Fossology\Lib\Data\Tree\ItemTreeBounds;
+use Fossology\Lib\Data\AgentRef;
 
 class UploadTreeProxy extends DbViewProxy
 {
@@ -182,9 +183,9 @@ class UploadTreeProxy extends DbViewProxy
   {
     return "NOT(SELECT (removed OR cd.decision_type=".DecisionTypes::IRRELEVANT.") excluded"
             . " FROM clearing_decision cd, clearing_decision_event cde, clearing_event ce"
-         . "    WHERE cd.group_fk=".$this->addParamAndGetExpr('groupId', $options[self::OPT_GROUP_ID])
-         . "      AND (cd.uploadtree_fk=$itemTable.uploadtree_pk"
-         . "        OR cd.scope=".DecisionScopes::REPO." AND cd.pfile_fk=$itemTable.pfile_fk)"
+         . "    WHERE ((cd.group_fk=".$this->addParamAndGetExpr('groupId', $options[self::OPT_GROUP_ID])
+         . "      AND cd.uploadtree_fk=$itemTable.uploadtree_pk)"
+         . "        OR (cd.scope=".DecisionScopes::REPO." AND cd.pfile_fk=$itemTable.pfile_fk))"
          . "      AND clearing_decision_pk=clearing_decision_fk"
          . "      AND clearing_event_fk=clearing_event_pk"
          . "      AND rf_fk=".$this->addParamAndGetExpr('conId',$options[self::OPT_CONCLUDE_REF])
@@ -259,7 +260,7 @@ class UploadTreeProxy extends DbViewProxy
       $agentFilter = " AND lf.agent_fk=ANY($agentIds)";
     } else {
       $scanJobProxy = new ScanJobProxy($GLOBALS['container']->get('dao.agent'),$uploadId);
-      $scanJobProxy->createAgentStatus(array('nomos','monk','ninka','reportImport'));
+      $scanJobProxy->createAgentStatus(array_keys(AgentRef::AGENT_LIST));
       $latestAgentIds = $scanJobProxy->getLatestSuccessfulAgentIds();
       $agentFilter = $latestAgentIds ? " AND lf.agent_fk=ANY(array[".implode(',',$latestAgentIds)."])" : "AND 0=1";
     }
@@ -272,20 +273,28 @@ class UploadTreeProxy extends DbViewProxy
    */
   private static function getQueryCondition($skipThese, $groupId = null, $agentFilter='')
   {
-    $conditionQueryHasLicense = "(EXISTS (SELECT * FROM license_ref lr, license_file lf"
-            . " WHERE rf_shortname NOT IN ('No_license_found', 'Void') AND lf.rf_fk=lr.rf_pk AND lf.pfile_fk = ut.pfile_fk $agentFilter)
-        OR EXISTS (SELECT 1 FROM clearing_decision AS cd WHERE cd.group_fk = $groupId AND ut.uploadtree_pk = cd.uploadtree_fk))";
+    $conditionQueryHasLicense = "(EXISTS (SELECT 1 FROM license_ref lr INNER JOIN license_file lf"
+      . " ON lf.rf_fk=lr.rf_pk WHERE rf_shortname NOT IN ('No_license_found', 'Void') AND lf.pfile_fk = ut.pfile_fk $agentFilter LIMIT 1)
+        OR EXISTS (SELECT 1 FROM clearing_decision AS cd WHERE cd.group_fk = $groupId AND ut.uploadtree_pk = cd.uploadtree_fk LIMIT 1))";
 
     switch ($skipThese) {
       case "noLicense":
         return $conditionQueryHasLicense;
       case self::OPT_SKIP_ALREADY_CLEARED:
-        $decisionQuery = "SELECT decision_type FROM clearing_decision AS cd
-                        WHERE cd.group_fk = $groupId
-                          AND (ut.uploadtree_pk = cd.uploadtree_fk OR cd.pfile_fk = ut.pfile_fk AND cd.scope=".DecisionScopes::REPO.")
-                        ORDER BY cd.clearing_decision_pk DESC LIMIT 1";
+        $decisionQuery = "
+SELECT decision_type, ROW_NUMBER() OVER (
+  PARTITION BY pfile_fk ORDER BY clearing_decision_pk
+) AS rnum
+FROM (
+  SELECT * FROM clearing_decision cd
+  WHERE (
+    ut.uploadtree_pk = cd.uploadtree_fk AND cd.group_fk = $groupId
+  ) OR (
+    cd.pfile_fk = ut.pfile_fk AND cd.scope=".DecisionScopes::REPO."
+  )
+) AS filtered_clearing_decision ORDER BY rnum DESC LIMIT 1";
         return " $conditionQueryHasLicense
-              AND NOT EXISTS (SELECT * FROM ($decisionQuery) as latest_decision WHERE latest_decision.decision_type IN (".DecisionTypes::IRRELEVANT.",".DecisionTypes::IDENTIFIED.") )";
+            AND NOT EXISTS (SELECT 1 FROM ($decisionQuery) as latest_decision WHERE latest_decision.decision_type IN (".DecisionTypes::IRRELEVANT.",".DecisionTypes::IDENTIFIED.",".DecisionTypes::DO_NOT_USE.") )";
       case "noCopyright":
         return "EXISTS (SELECT copyright_pk FROM copyright cp WHERE cp.pfile_fk=ut.pfile_fk and cp.hash is not null )";
       case "noEcc":
