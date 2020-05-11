@@ -56,7 +56,13 @@ QUERIES = {
     'number_of_url_uploads': "SELECT count(up2.upload_origin) as url_uploads FROM upload up2 WHERE up2.upload_mode = 100;",
     'agents_count': "SELECT ag.agent_name,count(jq.*) AS fired_jobs FROM agent ag LEFT OUTER JOIN jobqueue jq ON (jq.jq_type = ag.agent_name) GROUP BY ag.agent_name ORDER BY fired_jobs DESC;",
     'number_of_upload_status': "select CASE WHEN a.status=1 THEN 'open' WHEN a.status=2 THEN 'in_progres' WHEN a.status=3 THEN 'closed' WHEN a.status=3 THEN 'rejected' ELSE 'unknown' END status, a.count from (select status_fk status, count(1) as count from upload_clearing group by status_fk) a;",
-    'number_of_projects_per_size': "select t.size, count(t.size) from (select CASE WHEN s.sx<2000 THEN 'small' WHEN s.sx>=2000 and s.sx<10000 THEN 'normal' ELSE 'big' END size from (select count(ut.ufile_name) sx from uploadtree ut group by upload_fk) s) t group by t.size;"
+    'number_of_projects_per_size': "select t.size, count(t.size) from (select CASE WHEN s.sx<2000 THEN 'small' WHEN s.sx>=2000 and s.sx<10000 THEN 'normal' ELSE 'big' END size from (select count(ut.ufile_name) sx from uploadtree ut group by upload_fk) s) t group by t.size;",
+    "reportgen_count": "select count(*) from reportgen;",
+    "pfile_count": "select count(*) from pfile;",
+    "avg_pfile_count": "select round(avg(pfile_size)) from pfile;",
+    "job_count": "select count(*) as jobs from job;"
+
+
     }
 
 
@@ -144,3 +150,4 @@ if __name__ == "__main__":
 
 # example usage with text output:
 # python report.py |xargs -I % sh -c "echo % >>out"
+# @container: psql -h localhost -p 5432 -U fossy -d fossology -W
