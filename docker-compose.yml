@@ -47,6 +47,7 @@ services:
       - FOSSOLOGY_DB_USER=fossy
       - FOSSOLOGY_DB_PASSWORD=fossy
       - FOSSOLOGY_SCHEDULER_HOST=scheduler
+      - REPORTING_URL=http://influxdb:8086
     command: web
     ports:
       - 8081:80

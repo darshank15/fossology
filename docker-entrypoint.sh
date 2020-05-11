@@ -25,6 +25,9 @@ user=$db_user;
 password=$db_password;
 EOM
 
+# reporting 
+env|grep REPORTING > /usr/local/etc/fossology/reporting.conf || echo "No REPORTING configuration found."
+
 sed -i 's/address = .*/address = '"${FOSSOLOGY_SCHEDULER_HOST:-localhost}"'/' \
     /usr/local/etc/fossology/fossology.conf
 

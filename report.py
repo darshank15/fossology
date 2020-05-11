@@ -4,18 +4,10 @@ import time
 
 from socket import socket, AF_INET, SOCK_STREAM, SHUT_WR
 import psycopg2
-
-
+import datetime
 
 # Fossology DB configuration file
 DB_CONFIG_FILE = os.environ.get("DB_CONFIG_FILE","/usr/local/etc/fossology/Db.conf")
-
-# GRAPHITE SETTINGS
-GRAPHITE_HOST = os.environ.get("GRAPTHITE_HOST", "graphite")
-GRAPHITE_PORT = os.environ.get("GRAPHITE_PORT", 2004)
-# true only if envvar==True|1
-PICKLE_SEND = bool(os.environ.get("PICKLE_SEND", "True") in ["True", "1"])
-
 CONFIG = {}
 # parse DB_CONFIG_FILE
 with open(DB_CONFIG_FILE, mode="r") as dbf:
@@ -42,9 +34,13 @@ def report(connection):
     for query in [
             "number_of_users", "number_of_groups", "number_of_file_uploads",
             "number_of_projects__theoretically", "number_of_url_uploads",
-            "agents_count", "number_of_upload_status", "number_of_projects_per_size"]:
+            "agents_count", "number_of_upload_status", "number_of_projects_per_size",
+            "reportgen_count", "pfile_count", "avg_pfile_count", "job_count"
+            ]:
+        
         result = _query(connection, QUERIES[query])
-        _result[query] = result if len(result) > 1 else result[0]
+        if result:
+            _result[query] = result if len(result) > 1 else result[0]
     return _result
 
 QUERIES = {
@@ -68,9 +64,10 @@ QUERIES = {
 
 def prepare_report(data, prefix=None):
 
-    graphite_metric = []
-    root = prefix
+    # final report
+    reported_metrics = []   
 
+    # resolves embedded metric names (when reports returns more than one value, with subnames)
     def dig(r, data):
         if isinstance(data, list):
             multi = []
@@ -91,34 +88,14 @@ def prepare_report(data, prefix=None):
         return mask % data
 
     for metric, v in data.items():
-        digged = dig("{}.{}".format(root, metric), v)
+        digged = dig("{}".format(metric), v)
         if isinstance(digged, list):
             for metric in digged:
-                graphite_metric.append(metric)
+                reported_metrics.append(metric)
         else:
-            graphite_metric.append(digged)
+            reported_metrics.append(digged)
 
-    return graphite_metric
-
-
-def send(host, port, message):
-    """Sends messge through soncet """
-    sock = socket(AF_INET, SOCK_STREAM)
-    sock.connect((host, port))
-    sock.sendall(message)
-    time.sleep(1)
-    sock.shutdown(SHUT_WR)
-
-    res = ""
-    while True:
-        data = sock.recv(1024)
-        if not data:
-            break
-        res += data.decode()
-
-    print res
-    sock.close()
-
+    return reported_metrics
 
 if __name__ == "__main__":
     connection = None
@@ -126,28 +103,13 @@ if __name__ == "__main__":
         connection = psycopg2.connect(config)
         uuid = _query(connection, QUERIES['uuid'], single=True)[0]  # tuple
         raw_report = report(connection)
-        prefix = "fossology.%s" % uuid
-        results = prepare_report(raw_report, prefix=prefix)
+        results = prepare_report(raw_report)
     except (Exception, psycopg2.DatabaseError) as error:
         print error
     finally:
         if connection:
             connection.close()
+    timestamp = datetime.datetime.now().strftime("%s000000000")
     for metric in results:
-        print metric.split(" ")
-
-    if PICKLE_SEND:
-        import pickle
-        import struct
-        timestamp = time.time()
-        pre_tuples = [x.split(" ") for x in results]
-        tpls = [tuple([t[0], (time.time(), t[1])]) for t in pre_tuples]
-        payload = pickle.dumps(tpls, protocol=2)
-        header = struct.pack("!L", len(payload))
-        message = header + payload
-
-        send(GRAPHITE_HOST, GRAPHITE_PORT, message)
-
-# example usage with text output:
-# python report.py |xargs -I % sh -c "echo % >>out"
-# @container: psql -h localhost -p 5432 -U fossy -d fossology -W
+        metric_name, metric_value = metric.split(" ")
+        print("{},instance={} value={} {}".format(metric_name, uuid, metric_value, timestamp))
