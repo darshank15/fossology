@@ -396,7 +396,7 @@ Migrate_36_37($dbManager, $Verbose);
 
 /* instance uuid */
 require_once("$LIBEXECDIR/instance_uuid.php");
-=======
+//
 // Migration script for 3.7 => 3.8
 require_once("$LIBEXECDIR/dbmigrate_3.7-3.8.php");
 Migrate_37_38($dbManager, $MODDIR);
