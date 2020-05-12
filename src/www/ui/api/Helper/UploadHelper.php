@@ -1,7 +1,7 @@
 <?php
 /**
  * *************************************************************
- * Copyright (C) 2018 Siemens AG
+ * Copyright (C) 2018,2020 Siemens AG
  * Author: Gaurav Mishra <mishra.gaurav@siemens.com>
  *
  * This program is free software; you can redistribute it and/or
@@ -28,6 +28,10 @@ namespace Fossology\UI\Api\Helper;
 use Psr\Http\Message\ServerRequestInterface;
 use Fossology\UI\Api\Helper\UploadHelper\HelperToUploadFilePage;
 use Fossology\UI\Api\Helper\UploadHelper\HelperToUploadVcsPage;
+use Fossology\UI\Api\Models\UploadSummary;
+use Fossology\Lib\Db\DbManager;
+use Fossology\Lib\Proxy\ScanJobProxy;
+use Fossology\Lib\Dao\AgentDao;
 
 /**
  * @class UploadHelper
@@ -74,14 +78,12 @@ class UploadHelper
    * @param string $fileDescription Description of file uploaded
    * @param string $isPublic   Upload is `public, private or protected`
    * @param boolean $ignoreScm True if the SCM should be ignored.
-   * @param integer $groupId   Group under which the upload should happen.
-   *        Use default group id if not provided.
    * @return array Array with status, message and upload id
    * @see createVcsUpload()
    * @see createFileUpload()
    */
   public function createNewUpload(ServerRequestInterface $request, $folderName,
-    $fileDescription, $isPublic, $ignoreScm, $groupId = -1)
+    $fileDescription, $isPublic, $ignoreScm)
   {
     $uploadedFile = $request->getUploadedFiles();
     $vcsData = $request->getParsedBody();
@@ -92,7 +94,6 @@ class UploadHelper
     } else {
       $ignoreScm = 0;
     }
-
     if (empty($uploadedFile) ||
       ! isset($uploadedFile[$this->uploadFilePage::FILE_INPUT_NAME])) {
       if (empty($vcsData)) {
@@ -103,11 +104,11 @@ class UploadHelper
         );
       }
       return $this->createVcsUpload($vcsData, $folderName, $fileDescription,
-        $isPublic, $ignoreScm, $groupId);
+        $isPublic, $ignoreScm);
     } else {
       $uploadedFile = $uploadedFile[$this->uploadFilePage::FILE_INPUT_NAME];
       return $this->createFileUpload($uploadedFile, $folderName,
-        $fileDescription, $isPublic, $ignoreScm, $groupId);
+        $fileDescription, $isPublic, $ignoreScm);
     }
   }
 
@@ -119,12 +120,10 @@ class UploadHelper
    * @param string $fileDescription Description of file uploaded
    * @param string $isPublic    Upload is `public, private or protected`
    * @param boolean $ignoreScm  True if the SCM should be ignored.
-   * @param integer $groupId   Group under which the upload should happen.
-   *        Use default group id if not provided.
    * @return array Array with status, message and upload id
    */
   private function createFileUpload($uploadedFile, $folderName, $fileDescription,
-    $isPublic, $ignoreScm = 0, $groupId = -1)
+    $isPublic, $ignoreScm = 0)
   {
     $path = $uploadedFile->file;
     $originalName = $uploadedFile->getClientFilename();
@@ -148,9 +147,6 @@ class UploadHelper
       $this->uploadFilePage::UPLOAD_FORM_BUILD_PARAMETER_NAME, "restUpload");
     $symfonyRequest->request->set('public', $isPublic);
     $symfonyRequest->request->set('scm', $ignoreScm);
-    if ($groupId > 0) {
-      $symfonyRequest->request->set($this->uploadFilePage::UPLOAD_GROUP, $groupId);
-    }
 
     return $this->uploadFilePage->handleRequest($symfonyRequest);
   }
@@ -163,12 +159,10 @@ class UploadHelper
    * @param string $fileDescription Description of file uploaded
    * @param string $isPublic   Upload is `public, private or protected`
    * @param boolean $ignoreScm True if the SCM should be ignored.
-   * @param integer $groupId   Group under which the upload should happen.
-   *        Use default group id if not provided.
    * @return array Array with status, message and upload id
    */
   private function createVcsUpload($vcsData, $folderName, $fileDescription,
-    $isPublic, $ignoreScm = 0, $groupId = -1)
+    $isPublic, $ignoreScm = 0)
   {
     $sanity = $this->sanitizeVcsData($vcsData);
     if ($sanity !== true) {
@@ -179,6 +173,7 @@ class UploadHelper
     $vcsName = $vcsData["vcsName"];
     $vcsUsername = $vcsData["vcsUsername"];
     $vcsPasswd = $vcsData["vcsPassword"];
+    $vcsBranch = $vcsData["vcsBranch"];
 
     $symfonySession = $GLOBALS['container']->get('session');
     $symfonySession->set($this->uploadVcsPage::UPLOAD_FORM_BUILD_PARAMETER_NAME,
@@ -199,10 +194,8 @@ class UploadHelper
     $symfonyRequest->request->set('vcstype', $vcsType);
     $symfonyRequest->request->set('username', $vcsUsername);
     $symfonyRequest->request->set('passwd', $vcsPasswd);
+    $symfonyRequest->request->set('branch', $vcsBranch);
     $symfonyRequest->request->set('scm', $ignoreScm);
-    if ($groupId > 0) {
-      $symfonyRequest->request->set($this->uploadVcsPage::UPLOAD_GROUP, $groupId);
-    }
 
     return $this->uploadVcsPage->handleRequest($symfonyRequest);
   }
@@ -252,11 +245,128 @@ class UploadHelper
     if (! array_key_exists("vcsPassword", $vcsData)) {
       $vcsData["vcsPassword"] = "";
     }
+    if (! array_key_exists("vcsBranch", $vcsData)) {
+      $vcsData["vcsBranch"] = "";
+    }
     $vcsData["vcsType"] = $vcsType;
     if ($code !== 0) {
       return array(false, $message, $statusDescription, $code);
     } else {
       return true;
     }
+  }
+
+  /**
+   * Generate UploadSummary object for given upload respective to given group id
+   * @param integer $uploadId Upload ID
+   * @param integer $groupId  Group ID
+   * @return Fossology::UI::Api::Models::UploadSummary
+   */
+  public function generateUploadSummary($uploadId, $groupId)
+  {
+    global $container;
+    $restHelper = $container->get('helper.restHelper');
+    $uploadDao = $restHelper->getUploadDao();
+    $dbManager = $restHelper->getDbHelper()->getDbManager();
+    $clearingDao = $container->get('dao.clearing');
+    $copyrightDao = $container->get('dao.copyright');
+    $agentDao = $container->get('dao.agent');
+
+    $agentName = "copyright";
+
+    $totalClearings = $clearingDao->getTotalDecisionCount($uploadId, $groupId);
+    $clearingCount = $clearingDao->getClearingDecisionsCount($uploadId,
+      $groupId);
+    $uploadTreeTableName = $uploadDao->getUploadtreeTableName($uploadId);
+    $itemTreeBounds = $uploadDao->getParentItemBounds($uploadId,
+      $uploadTreeTableName);
+    $scanProx = new ScanJobProxy($agentDao, $uploadId);
+    $scanProx->createAgentStatus([$agentName]);
+    $agents = $scanProx->getLatestSuccessfulAgentIds();
+    $copyrightCount = 0;
+    if (array_key_exists($agentName, $agents) && ! empty($agents[$agentName])) {
+      $copyrightCount = count(
+        $copyrightDao->getAllEntriesReport($agentName, $uploadId,
+          $uploadTreeTableName, null, false, null, "C.agent_fk = " .
+          $agents[$agentName], $groupId));
+    }
+
+    $mainLicenses = $this->getMainLicenses($dbManager, $uploadId, $groupId);
+
+    $uiLicense = $restHelper->getPlugin("license");
+    $hist = $uiLicense->getUploadHist($itemTreeBounds);
+
+    $summary = new UploadSummary();
+    $summary->setUploadId($uploadId);
+    $summary->setUploadName($uploadDao->getUpload($uploadId)->getFilename());
+    if ($mainLicenses !== null) {
+      $summary->setMainLicense(implode(",", $mainLicenses));
+    }
+    $summary->setUniqueLicenses($hist['uniqueLicenseCount']);
+    $summary->setTotalLicenses($hist['scannerLicenseCount']);
+    $summary->setUniqueConcludedLicenses($hist['editedUniqueLicenseCount']);
+    $summary->setTotalConcludedLicenses($hist['editedLicenseCount']);
+    $summary->setFilesToBeCleared($totalClearings - $clearingCount);
+    $summary->setFilesCleared($clearingCount);
+    $summary->setClearingStatus($uploadDao->getStatus($uploadId, $groupId));
+    $summary->setCopyrightCount($copyrightCount);
+    return $summary;
+  }
+
+  /**
+   * Get main license selected for the upload
+   * @param DbManager $dbManager DbManager object
+   * @param integer $uploadId    Upload ID
+   * @param integer $groupId     Group ID
+   * @return NULL|array
+   */
+  private function getMainLicenses($dbManager, $uploadId, $groupId)
+  {
+    $sql = "SELECT rf_shortname FROM upload_clearing_license ucl, license_ref"
+         . " WHERE ucl.group_fk=$1 AND upload_fk=$2 AND ucl.rf_fk=rf_pk;";
+    $stmt = __METHOD__.'.collectMainLicenses';
+    $rows = $dbManager->getRows($sql, array($groupId, $uploadId), $stmt);
+    if (empty($rows)) {
+      return null;
+    }
+    $mainLicenses = [];
+    foreach ($rows as $row) {
+      array_push($mainLicenses, $row['rf_shortname']);
+    }
+    return $mainLicenses;
+  }
+
+  /**
+   * Get the license list for given upload scanned by provided agents
+   * @param integer $uploadId        Upload ID
+   * @param array $agents            List of agents to get list from
+   * @param boolean $printContainers If true, print container info also
+   * @return array Array containing `filePath`, `agentFindings` and
+   * `conclusions` for each upload tree item
+   */
+  public function getUploadLicenseList($uploadId, $agents, $printContainers)
+  {
+    global $container;
+    $restHelper = $container->get('helper.restHelper');
+    $uploadDao = $restHelper->getUploadDao();
+    $agentDao = $container->get('dao.agent');
+
+    $uploadTreeTableName = $uploadDao->getUploadtreeTableName($uploadId);
+    $parent = $uploadDao->getParentItemBounds($uploadId, $uploadTreeTableName);
+
+    $scanProx = new ScanJobProxy($agentDao, $uploadId);
+    $scanProx->createAgentStatus($agents);
+    $agent_ids = $scanProx->getLatestSuccessfulAgentIds();
+
+    /** @var ui_license_list $licenseListObj
+     * ui_license_list object to get licenses
+     */
+    $licenseListObj = $restHelper->getPlugin('license-list');
+    $licenseList = $licenseListObj->createListOfLines($uploadTreeTableName,
+      $parent->getItemId(), $agent_ids, -1, true, '', !$printContainers);
+    if (array_key_exists("warn", $licenseList)) {
+      unset($licenseList["warn"]);
+    }
+    return $licenseList;
   }
 }
