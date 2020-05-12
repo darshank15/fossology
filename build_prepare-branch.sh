@@ -32,6 +32,6 @@ then
     git branch --list -r "origin/$branch_root/feat/*" | \
 		xargs git merge --verbose --no-commit
 else
-    f_log "No Octopus merge required for '$branch_root'"
+    f_log "No Octopus merge required for '$branch'"
 fi
 f_log "-----------------------------------------------"
