@@ -25,6 +25,9 @@ user=$db_user;
 password=$db_password;
 EOM
 
+# reporting 
+env|grep REPORTING > /usr/local/etc/fossology/reporting.conf || echo "No REPORTING configuration found."
+
 sed -i 's/address = .*/address = '"${FOSSOLOGY_SCHEDULER_HOST:-localhost}"'/' \
     /usr/local/etc/fossology/fossology.conf
 
@@ -57,6 +60,7 @@ fi
 echo
 echo 'Fossology initialisation complete; Starting up...'
 echo
+/etc/init.d/cron start
 if [[ $# -eq 0 ]]; then
   /usr/local/share/fossology/scheduler/agent/fo_scheduler \
     --log /dev/stdout \
@@ -69,6 +73,7 @@ elif [[ $# -eq 1 && "$1" == "scheduler" ]]; then
     --verbose=3 \
     --reset
 elif [[ $# -eq 1 && "$1" == "web" ]]; then
+  /etc/init.d/cron start
   exec /usr/sbin/apache2ctl -e info -D FOREGROUND
 else
   exec "$@"

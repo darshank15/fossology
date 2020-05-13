@@ -65,6 +65,10 @@ RUN mkdir /usr/share/man/man1 /usr/share/man/man7 \
       curl \
       lsb-release \
       sudo \
+      cron \ 
+      vim \
+      python \
+      python-psycopg2 \
  && DEBIAN_FRONTEND=noninteractive /fossology/utils/fo-installdeps --offline --runtime -y \
  && DEBIAN_FRONTEND=noninteractive apt-get purge -y lsb-release \
  && DEBIAN_FRONTEND=noninteractive apt-get autoremove -y \
@@ -86,6 +90,10 @@ ENTRYPOINT ["/fossology/docker-entrypoint.sh"]
 COPY --from=builder /etc/cron.d/fossology /etc/cron.d/fossology
 COPY --from=builder /etc/init.d/fossology /etc/init.d/fossology
 COPY --from=builder /usr/local/ /usr/local/
+
+COPY ./report.py /fossology/report.py
+COPY ./report.run /fossology/report.run
+RUN chmod +x /fossology/report.run
 
 # the database is filled in the entrypoint
 RUN /usr/local/lib/fossology/fo-postinstall --agent --common --scheduler-only --web-only --no-running-database

@@ -8,7 +8,7 @@
  function CreateInstanceUUIDTable($dbManager)
  {
      if($dbManager == NULL){
-         echo "Missing dbManager object. Can't creaye instance_uuid table.\n";
+         echo "Missing dbManager object. Can't create instance_uuid table.\n";
          return false;
      }
 
