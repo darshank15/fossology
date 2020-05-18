@@ -2,7 +2,6 @@
 import os
 import time
 
-from socket import socket, AF_INET, SOCK_STREAM, SHUT_WR
 import psycopg2
 import datetime
 
