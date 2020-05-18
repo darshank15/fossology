@@ -2,11 +2,13 @@
 import os
 import time
 
-from socket import socket, AF_INET, SOCK_STREAM, SHUT_WR
 import psycopg2
 import datetime
 
 # Fossology DB configuration file
+#
+# /!\ FIXME: DB_CONFIG_FILE will not be availble in CRON context
+#
 DB_CONFIG_FILE = os.environ.get("DB_CONFIG_FILE","/usr/local/etc/fossology/Db.conf")
 CONFIG = {}
 # parse DB_CONFIG_FILE
