@@ -1,0 +1,188 @@
+# Official Template of GitLab-CI file used to Check, Build, Test, Audit and Publish a "Project" Docker image from a Dockerfile.
+# Unless you know what you're doing, you don't need to modify anything on this file except the "Edit Part" and potentially the "test-job"
+# Source URL: https://gitlab.forge.orange-labs.fr/devops-store/gitlab-ci-docker-image-hello-world
+# Try to always use the last version
+# Version : 2.1.2 - 15.10.2018
+# Developed by DevOps Store - devops.store@orange.com
+
+variables:
+
+  ### EDIT PART ###
+
+  # Which version of Docker to use to build your Docker image (full list here : https://hub.docker.com/r/library/docker/)
+  DOCKER_VERSION: "18.06"
+
+  # When testing a Docker Health (test stage), how long (in seconds) wait for the HealthCheck status (https://docs.docker.com/engine/reference/builder/#healthcheck)
+  DOCKER_HEALTHCHECK_TIMEOUT: "60"
+
+  # When Pushing to Artifactory registry (simply uncomment and add the secret variables)
+  # Artifactory is recommanded for shared images or images used in production (because in Artifactory no one can delete or replace a released image)
+  # Use GitLab Secret Variables to safely store Username/Password variables
+  #REGISTRY_USER: $ARTIFACTORY_USERNAME
+  #REGISTRY_PASSWORD: $ARTIFACTORY_PASSWORD
+  #REGISTRY_TEST_URL: dockerfactory-unstable-iva.si.francetelecom.fr
+  #REGISTRY_RELEASE_URL: dockerfactory-iva.si.francetelecom.fr
+  #CONTAINER_TEST_IMAGE: dockerfactory-unstable-iva.si.francetelecom.fr/$CI_PROJECT_PATH:$CI_COMMIT_REF_NAME
+  #CONTAINER_RELEASE_IMAGE: dockerfactory-iva.si.francetelecom.fr/$CI_PROJECT_PATH:$CI_COMMIT_REF_NAME
+
+  # Proxies: See    https://gitlab.forge.orange-labs.fr/snippets/174
+  http_proxy: "http://devwatt-proxy.si.fr.intraorange:8080"
+  https_proxy: "http://devwatt-proxy.si.fr.intraorange:8080"
+  no_proxy: docker,gitlab.forge.orange-labs.fr,registry.forge.orange-labs.fr
+
+  # When pushing to Gitlab registry
+  REGISTRY_USER: gitlab-ci-token
+  REGISTRY_PASSWORD: $CI_JOB_TOKEN
+  REGISTRY_TEST_URL: $CI_REGISTRY
+  REGISTRY_RELEASE_URL: $CI_REGISTRY
+  CONTAINER_TEST_IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+  CONTAINER_RELEASE_IMAGE: $CONTAINER_TEST_IMAGE
+
+  ### END EDIT PART ###
+
+
+# ==================================================
+# Stages definition
+# ==================================================
+
+stages:
+  # If needed, add your own Stages to compile/test/package your code that will be used in the Image
+  - docker-lint
+  - docker-build
+  - docker-test
+  - docker-release
+
+
+# ==================================================
+# Jobs definition
+# ==================================================
+
+.job_template_docker: &job_definition_docker
+  image: dockerproxy-iva.si.francetelecom.fr/docker:$DOCKER_VERSION
+  services:
+    - name: dockerproxy-iva.si.francetelecom.fr/docker:$DOCKER_VERSION-dind
+      alias: docker
+  tags:
+    - rsc
+    - docker-privileged
+    - shared
+  before_script:
+    - env | grep ^DOCKER_
+    - env | grep ^CI_
+    - docker info
+    - '[ -z "$REGISTRY_PASSWORD" ] && echo "Registry Password is not set or empty (or protected) in Secret Variables" && exit 1'
+    - '[ -z "$REGISTRY_USER" ] && echo "Registry User is not set or empty (or protected) in Secret Variables" && exit 1'
+    - echo $REGISTRY_PASSWORD | docker login $REGISTRY_TEST_URL --username $REGISTRY_USER --password-stdin
+    - echo $REGISTRY_PASSWORD | docker login $REGISTRY_RELEASE_URL --username $REGISTRY_USER --password-stdin
+    - export ORANGE_VERSION="$CI_COMMIT_TAG"
+    - '[ -z "$ORANGE_VERSION" ] && export ORANGE_VERSION="Build_$(date +%y/%m/%d_%H:%M:%S)"'
+    - echo "ORANGE_VERSION=$ORANGE_VERSION"
+
+
+# ==================================================
+# Stage: docker-lint
+# ==================================================
+
+# lint-job is used to check the syntax of the Dockerfile for best practices. It uses custom rules made by Devops Store.
+# Seriously! Don't remove these stage. If one test doesn't work for you, manually download the file .dockerlint.yml (from the link below) in your repository and comment the specific test.
+# Plus, report us the problem by creating an issue in https://gitlab.forge.orange-labs.fr/docker/orange-dockerfile-lint to see if we can correct it.
+docker-lint-job:
+  image: dockerfactory-iva.si.francetelecom.fr/docker/orange-dockerfile-lint:0.3-alpine3-1
+  tags:
+    - rsc
+    - docker
+    - shared
+  stage: docker-lint
+  script:
+    - dockerfile_lint --permissive -f Dockerfile
+
+
+# ==================================================
+# Stage: docker-build
+# ==================================================
+
+docker-build-job:
+  <<: *job_definition_docker
+  stage: docker-build
+  script:
+    ### PROJECT SECTION ###
+    - apk update && apk add git
+    - git config user.email "$CI_REGISTRY_USER@$CI_REGISTRY"
+    - git config user.name "$CI_PROJECT_PATH_SLUG $CI_COMMIT_REF_SLUG"
+    - ./build_prepare-branch.sh "$DOCKER_ENV_CI_COMMIT_REF_SLUG"
+    ### DOCKER SECTION ###
+    - docker pull $CONTAINER_TEST_IMAGE || true
+    # Build using cache if exist
+    - set -x ; docker build --cache-from $CONTAINER_TEST_IMAGE --build-arg ORANGE_VERSION=$ORANGE_VERSION --build-arg http_proxy=$http_proxy --build-arg https_proxy=$http_proxy --build-arg no_proxy=$no_proxy --tag $CONTAINER_TEST_IMAGE .
+    - docker push $CONTAINER_TEST_IMAGE
+    # Display the size of each layer
+    - docker history $CONTAINER_TEST_IMAGE
+    # Display the total size of the image
+    - docker images $CONTAINER_TEST_IMAGE
+
+
+# ==================================================
+# Stage: docker-test
+# ==================================================
+
+# Tests should be run as a health_check. If so, you don't need to edit this job
+#docker-test-image-job:
+#  <<: *job_definition_docker
+#  stage: docker-test
+#  script:
+#
+#    # Test by internal health_check (Recommended way, more info https://docs.docker.com/engine/reference/builder/#healthcheck)
+#    # This looks complicated but you normally don't have to touch this...
+#    - 'CONTAINER_TEST_ID=`docker run -d $CONTAINER_TEST_IMAGE` && echo $CONTAINER_TEST_ID'
+#    - 'TIMESTAMP_FROM=$(echo $(( `date +%s` - $DOCKER_HEALTHCHECK_TIMEOUT )))'
+#    - 'TIMESTAMP_TO=$(echo $(( `date +%s` + $DOCKER_HEALTHCHECK_TIMEOUT )))'
+#    - 'FULL_RESULT=`docker events --filter container=$CONTAINER_TEST_ID --format="{{.Status}}" --since $TIMESTAMP_FROM --until $TIMESTAMP_TO` || { echo "Unexpected error"; docker logs $CONTAINER_TEST_ID; exit 1; }'
+#    - 'RESULT=`echo -e "$FULL_RESULT" | grep -m 1 "healthy\|unhealthy"` && if echo "$RESULT" | grep ": healthy"; then RESULT="healthy"; else RESULT="unhealthy"; fi || RESULT="timeout"'
+#    - 'docker logs $CONTAINER_TEST_ID; true'
+#    - 'docker inspect $CONTAINER_TEST_ID; true'
+#    - '[ "$RESULT" == "healthy" ] && echo "healthy" || { echo -e "HealthCheck test error, reason: $RESULT\nFull logs:\n$FULL_RESULT"; exit 1; }'
+#
+#    # If the image doesn't run a "service" (change "curl --version" by something usefull)
+#    - docker run $CONTAINER_TEST_IMAGE curl --version
+
+
+# Security audit with clair
+# This is a non-blocking job, it will always return (code) 0
+# More informations and support about Clair here: https://plazza.orange.com/groups/orange-docker-security-advisor
+docker-audit-clair-job:
+  stage: docker-test
+  image: dockerfactory-iva.si.francetelecom.fr/docker/orange-klar:2-alpine3-1
+  tags:
+    - rsc
+    - docker
+    - shared
+  script:
+    - CLAIR_ADDR=clairaudit.si.fr.intraorange:8080 DOCKER_USER=$REGISTRY_USER DOCKER_PASSWORD=$REGISTRY_PASSWORD klar $CONTAINER_TEST_IMAGE || true
+
+
+# ==================================================
+# Stage: docker-release
+# ==================================================
+
+# DQXN4211, 02/02/2020
+# Commenting the Docker release job on tag creation, 
+#  because all docker images are tagged according to
+#  the git Tag name if any
+# On top of it, '$CONTAINER_RELEASE_IMAGE' does not evaluate correctly
+#  (double variable indirection fails) -> push fails as it is 
+
+# This stage only run when you put a new tag to the git repository (a good tag format would be x.x.x ex: 1.0.1, see https://semver.org/)
+# It will push the release tagged image to the chosen Registry
+#docker-release-job:
+#  <<: *job_definition_docker
+#  stage: docker-release
+#  script:
+#    - 'echo DEBUG: $CONTAINER_TEST_IMAGE $CONTAINER_RELEASE_IMAGE'
+#    - 'echo DEBUG: ORANGE_VERSION=$ORANGE_VERSION'
+#    - 'echo DEBUG: CONTAINER_RELEASE_IMAGE=$CONTAINER_RELEASE_IMAGE'
+#    - docker pull $CONTAINER_TEST_IMAGE
+#    - docker tag $CONTAINER_TEST_IMAGE $CONTAINER_RELEASE_IMAGE
+#    - docker push $CONTAINER_RELEASE_IMAGE
+#    - 'echo Well done! your image is published and can be downloaded by doing: docker pull $CONTAINER_RELEASE_IMAGE'
+#  only:
+#    - tags
