@@ -12,7 +12,7 @@
 version: '3.5'
 services:
   scheduler:
-    image: registry.forge.orange-labs.fr/opensource/fossology:master_dev-orange-docker-build
+    image: registry.forge.orange-labs.fr/opensource/fossology:o-master-docker-deploy
     restart: unless-stopped
     environment:
       - FOSSOLOGY_DB_HOST=db
@@ -25,7 +25,7 @@ services:
     volumes:
       - repository:/srv/fossology/repository/
   web:
-    image: registry.forge.orange-labs.fr/opensource/fossology:master_dev-orange-docker-build
+    image: registry.forge.orange-labs.fr/opensource/fossology:o-master-docker-deploy
     restart: unless-stopped
     environment:
       - FOSSOLOGY_DB_HOST=db
