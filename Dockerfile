@@ -97,9 +97,10 @@ COPY --from=builder /etc/cron.d/fossology /etc/cron.d/fossology
 COPY --from=builder /etc/init.d/fossology /etc/init.d/fossology
 COPY --from=builder /usr/local/ /usr/local/
 
-COPY ./report.py /fossology/report.py
-COPY ./report.run /fossology/report.run
-RUN chmod +x /fossology/report.run
+# Copy FossDash scripts
+COPY ./install/fossdash/fossdash-publish.py /fossology/fossdash-publish.py
+COPY ./install/fossdash/fossdash-publish.run /fossology/fossdash-publish.run
+RUN chmod +x /fossology/fossdash-publish.run
 
 # the database is filled in the entrypoint
 RUN /usr/local/lib/fossology/fo-postinstall --agent --common --scheduler-only --web-only --no-running-database

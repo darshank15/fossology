@@ -1,4 +1,23 @@
 #!/usr/bin/env python
+#
+# Copyright (C) 2020 Orange
+# SPDX-License-Identifier: GPL-2.0
+# Author: Nicolas Toussaint <nicolas1.toussaint@orange.com>
+# Author: Drózdz Bartlomiej <bartlomiej.drozdz@orange.com>
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# version 2 as published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
 import os
 import time
 
@@ -7,7 +26,7 @@ import datetime
 
 # Fossology DB configuration file
 #
-# /!\ FIXME: DB_CONFIG_FILE will not be availble in CRON context
+# /!\ FIXME: Variable DB_CONFIG_FILE will not be availble in CRON context
 #
 DB_CONFIG_FILE = os.environ.get("DB_CONFIG_FILE","/usr/local/etc/fossology/Db.conf")
 CONFIG = {}
@@ -17,7 +36,6 @@ with open(DB_CONFIG_FILE, mode="r") as dbf:
     while config_entry:
         config_entry = config_entry.split("=")
         CONFIG[config_entry[0]] = config_entry[1].strip().replace(";", "")
-
         config_entry = dbf.readline()
 
 # produces "conf1=val1 conf2=val2 conf3=val3 ..."
@@ -32,14 +50,14 @@ def _query(connection, query, single=False):
 
 
 def report(connection):
-    _result = {}    
+    _result = {}
     for query in [
             "number_of_users", "number_of_groups", "number_of_file_uploads",
             "number_of_projects__theoretically", "number_of_url_uploads",
             "agents_count", "number_of_upload_status", "number_of_projects_per_size",
             "reportgen_count", "pfile_count", "avg_pfile_count", "job_count"
             ]:
-        
+
         result = _query(connection, QUERIES[query])
         if result:
             _result[query] = result if len(result) > 1 else result[0]
@@ -63,11 +81,10 @@ QUERIES = {
 
     }
 
-
 def prepare_report(data, prefix=None):
 
     # final report
-    reported_metrics = []   
+    reported_metrics = []
 
     # resolves embedded metric names (when reports returns more than one value, with subnames)
     def dig(r, data):

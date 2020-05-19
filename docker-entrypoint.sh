@@ -25,8 +25,10 @@ user=$db_user;
 password=$db_password;
 EOM
 
-# reporting 
-env|grep REPORTING > /usr/local/etc/fossology/reporting.conf || echo "No REPORTING configuration found."
+# FossDash configuration
+# FIXME: File location may not work outside of Docker environment
+# This file is used in install/fossdash/fossdash-publish.run
+env|grep FOSSDASH > /usr/local/etc/fossology/fossdash.conf || echo "No FOSSDASH configuration found."
 
 sed -i 's/address = .*/address = '"${FOSSOLOGY_SCHEDULER_HOST:-localhost}"'/' \
     /usr/local/etc/fossology/fossology.conf
@@ -67,7 +69,6 @@ if [[ $# -eq 0 ]]; then
     --verbose=3 \
     --reset &
   /usr/sbin/apache2ctl -D FOREGROUND
-  /etc/init.d/cron start
 elif [[ $# -eq 1 && "$1" == "scheduler" ]]; then
   exec /usr/local/share/fossology/scheduler/agent/fo_scheduler \
     --log /dev/stdout \
