@@ -390,9 +390,6 @@ $dbManager->commit();
 /* email/url/author data migration to other table */
 require_once("$LIBEXECDIR/dbmigrate_copyright-author.php");
 
-/* instance uuid */
-require_once("$LIBEXECDIR/instance_uuid.php");
-
 // Migration script to move candidate licenses in obligations
 require_once("$LIBEXECDIR/dbmigrate_3.6-3.7.php");
 Migrate_36_37($dbManager, $Verbose);
