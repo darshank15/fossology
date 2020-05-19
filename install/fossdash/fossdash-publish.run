@@ -18,6 +18,9 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+echo
+echo "$(date) - $0 - $*"
+
 # FIXME: File location may not work outside of Docker environment
 . /usr/local/etc/fossology/fossdash.conf
 [ -z "$FOSSDASH_URL" ] && echo "Missing FOSSDASH_URL variable. Exiting." && exit 0
@@ -34,20 +37,28 @@ echo "tmp_file= $tmp_file"
 echo "Fossology instance IDs:"
 sed 's/.*instance=\([^ ]*\).*$/\1/'  $tmp_file | sort | uniq | cat -n
 
+f_post_data() {
+   curl \
+    --silent --show-error --output /dev/null \
+    -i -XPOST "$FOSSDASH_URL/write?db=$database" \
+    --data-binary @$1
+}
+
 echo
 echo "Sending metrics to ${FOSSDASH_URL}"
-curl -k -i -XPOST "$FOSSDASH_URL/write?db=$database" --data-binary @$tmp_file || exit 1
+f_post_data $tmp_file || exit 1
 
 # mark as 'send'
 mv $tmp_file $tmp_file.reported
 
 # list files that were generated but not sent
-yet_not_sent=`ls /tmp/ --ignore=*.reported|grep $(basename $0)`
+not_yet_sent=`ls /tmp/ --ignore=*.reported|grep $(basename $0)`
 
 # send them one by one, then rename/delete
-for report_file in $yet_not_sent; do
-    echo "Rending previusly prepared report: /tmp/$report_file"
-    curl -k -i -XPOST "$FOSSDASH_URL/write?db=$database" --data-binary @/tmp/$report_file
+for report_file in $not_yet_sent
+do
+    echo "Sending previusly prepared report: /tmp/$report_file"
+	f_post_data /tmp/$report_file
     echo "Reporting file moved to /tmp/$report_file.reported"
     mv /tmp/$report_file /tmp/$report_file.reported
 done
