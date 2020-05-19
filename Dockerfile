@@ -72,8 +72,7 @@ RUN mkdir /usr/share/man/man1 /usr/share/man/man7 \
       curl \
       lsb-release \
       sudo \
-      cron \ 
-      vim \
+      cron \
       python \
       python-psycopg2 \
  && DEBIAN_FRONTEND=noninteractive /fossology/utils/fo-installdeps --offline --runtime -y \
