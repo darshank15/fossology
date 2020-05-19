@@ -10,8 +10,14 @@
 # Description: Docker container image recipe
 
 FROM debian:stretch-slim as builder
+ARG ORANGE_VERSION
 
-LABEL maintainer="Fossology <fossology@fossology.org>"
+LABEL maintainer="opensource-audit-solutions@list.orange.com"
+LABEL Name="Fossology_Orange-OpenSource"
+LABEL Description="Fossology Docker Image"
+LABEL Url="https://gitlab.forge.orange-labs.fr/opensource/fossology/wikis/"
+
+EXPOSE 80
 
 WORKDIR /fossology
 
@@ -46,12 +52,10 @@ COPY . .
 
 RUN /fossology/utils/install_composer.sh
 
-RUN make clean install clean
+RUN make VERSION=$ORANGE_VERSION clean install clean
 
 
 FROM debian:stretch-slim
-
-LABEL maintainer="Fossology <fossology@fossology.org>"
 
 ### install dependencies
 COPY --from=builder /fossology/dependencies-for-runtime /fossology
@@ -59,8 +63,11 @@ COPY --from=builder /fossology/dependencies-for-runtime /fossology
 WORKDIR /fossology
 
 # Fix for Postgres and other packages in slim variant
+# Note: cron, python, python-psycopg2 are installed 
+#       specifically for metrics reporting
 RUN mkdir /usr/share/man/man1 /usr/share/man/man7 \
  && DEBIAN_FRONTEND=noninteractive apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       curl \
       lsb-release \
