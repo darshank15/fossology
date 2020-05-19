@@ -3,7 +3,7 @@
 # Copyright (C) 2020 Orange
 # SPDX-License-Identifier: GPL-2.0
 # Author: Nicolas Toussaint <nicolas1.toussaint@orange.com>
-# Author: Drózdz Bartlomiej <bartlomiej.drozdz@orange.com>
+# Author: Drozdz Bartlomiej <bartlomiej.drozdz@orange.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
