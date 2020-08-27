@@ -36,7 +36,6 @@ const MAX_ROW_SIZE = 100;
  */
 const ENCODE_TABLES = array(
   "copyright",
-  "author",
   "ecc",
   "keyword"
 );

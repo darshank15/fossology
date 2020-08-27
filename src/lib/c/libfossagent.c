@@ -115,7 +115,9 @@ PGresult* queryFileIdsForUpload(fo_dbManager* dbManager, int uploadId, bool igno
       fo_dbManager_PrepareStamement(
         dbManager,
         queryName,
-        SQL)
+        SQL,
+        int),
+      uploadId
     );
     g_free(queryName);
   }

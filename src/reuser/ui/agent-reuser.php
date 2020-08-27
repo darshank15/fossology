@@ -123,9 +123,6 @@ class ReuserAgentPlugin extends AgentPlugin
         case 'reuseConf':
           $reuseMode |= UploadDao::REUSE_CONF;
           break;
-        case 'reuseCopyright':
-          $reuseMode |= UploadDao::REUSE_COPYRIGHT;
-          break;
       }
     }
 
@@ -186,9 +183,6 @@ class ReuserAgentPlugin extends AgentPlugin
     }
     if ($request->get("Check_agent_ninka", false)) {
       $dependencies[] = "agent_ninka";
-    }
-    if ($request->get("Check_agent_copyright", false)) {
-      $dependencies[] = "agent_copyright";
     }
     return $dependencies;
   }

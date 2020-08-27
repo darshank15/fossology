@@ -42,8 +42,6 @@ class ClearingDao
   private $logger;
   /** @var UploadDao */
   private $uploadDao;
-  /** @var CopyrightDao */
-  private $copyrightDao;
   /** @var LicenseRef[] */
   private $licenseRefCache;
 
@@ -57,8 +55,6 @@ class ClearingDao
     $this->logger = new Logger(self::class);
     $this->uploadDao = $uploadDao;
     $this->licenseRefCache = array();
-    global $container;
-    $this->copyrightDao = $container->get('dao.copyright');
   }
 
   private function getRelevantDecisionsCte(ItemTreeBounds $itemTreeBounds, $groupId, $onlyCurrent, &$statementName, &$params, $condition="")
@@ -341,14 +337,6 @@ class ClearingDao
          !empty($this->getCandidateLicenseCountForCurrentDecisions($uploadTreeId))) {
       throw new \Exception( _("Cannot add candidate license as global decision\n") );
     }
-
-    $itemTreeBounds = $this->uploadDao->getItemTreeBounds($uploadTreeId);
-    if ($this->isDecisionIrrelevant($uploadTreeId, $groupId)) {
-      $this->copyrightDao->updateTable($itemTreeBounds, '', '', $userId, 'copyright', 'rollback');
-    } else if ($decType == DecisionTypes::IRRELEVANT) {
-      $this->copyrightDao->updateTable($itemTreeBounds, '', '', $userId, 'copyright', 'delete');
-    }
-
     $this->dbManager->begin();
 
     $this->removeWipClearingDecision($uploadTreeId, $groupId);
@@ -634,20 +622,6 @@ INSERT INTO clearing_decision (
     return ($latestDec['decision_type'] == DecisionTypes::DO_NOT_USE);
   }
 
-
-  public function isDecisionIrrelevant($uploadTreeId, $groupId)
-  {
-    $sql = "SELECT decision_type FROM clearing_decision
-              WHERE uploadtree_fk=$1 AND group_fk = $2
-            ORDER BY clearing_decision_pk DESC LIMIT 1";
-    $latestDec = $this->dbManager->getSingleRow($sql,
-                 array($uploadTreeId, $groupId), $sqlLog = __METHOD__);
-    if ($latestDec === false) {
-      return false;
-    }
-    return ($latestDec['decision_type'] == DecisionTypes::IRRELEVANT);
-  }
-
   /**
    * @param ItemTreeBounds $itemTreeBound
    * @param int $groupId
@@ -832,7 +806,6 @@ INSERT INTO clearing_decision (
                FROM UploadTreeView WHERE NOT EXISTS (
              SELECT uploadtree_fk FROM clearing_decision
               WHERE decision_type=$'.($a+2).' AND uploadtree_fk=UploadTreeView.uploadtree_pk)';
-       $this->copyrightDao->updateTable($itemTreeBounds, '', '', $userId, 'copyright', 'delete');
     } else {
       $params[] = $decisionMark;
       $sql = $uploadTreeProxy->asCte()
@@ -843,7 +816,6 @@ INSERT INTO clearing_decision (
                FROM clearing_decision WHERE uploadtree_fk IN (
              SELECT uploadtree_pk FROM UploadTreeView) GROUP BY uploadtree_fk) cd2 ON cd.uploadtree_fk = cd2.uploadtree_fk
                 AND cd.date_added = cd2.date_added AND decision_type = $'.($a+1).')';
-      $this->copyrightDao->updateTable($itemTreeBounds, '', '', $userId, 'copyright', 'rollback');
     }
     $this->dbManager->prepare($statementName, $sql);
     $res = $this->dbManager->execute($statementName,$params);
@@ -1061,7 +1033,6 @@ FROM (SELECT DISTINCT uploadtree_pk FROM allDecs) AS no_license_uploadtree;";
    */
   public function getCandidateLicenseCountForCurrentDecisions($uploadTreeId, $uploadId=0)
   {
-    $params = array();
     if (!empty($uploadId)) {
       $itemTreeBounds = $this->uploadDao->getParentItemBounds($uploadId, $uploadTreeTableName);
       $uploadTreeTableName = $this->uploadDao->getUploadtreeTableName($uploadId);
@@ -1078,7 +1049,7 @@ FROM (SELECT DISTINCT uploadtree_pk FROM allDecs) AS no_license_uploadtree;";
       SELECT rf_fk, date_added, removed FROM (
         SELECT rf_fk, date_added, removed, row_number()
           OVER (PARTITION BY rf_fk ORDER BY date_added DESC) AS ROWNUM
-        FROM clearing_event WHERE $uploadtreeStatement) SORTABLE
+        FROM clearing_event WHERE $uploadtreeStatement) SORTABLE 
           WHERE ROWNUM = 1 ORDER BY rf_fk)
       SELECT count(*) FROM license_candidate WHERE license_candidate.rf_pk IN
         (SELECT rf_fk FROM latestEvents WHERE removed=false);";

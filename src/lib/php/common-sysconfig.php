@@ -263,14 +263,6 @@ function Populate_sysconfig()
   $valueArray[$variable] = array("'$variable'", "'$fossologyURL'", "'$urlPrompt'",
     strval(CONFIG_TYPE_TEXT), "'URL'", "1", "'$urlDesc'", "'$urlValid'", "null");
 
-  $variable = "ClearlyDefinedURL";
-  $urlPrompt = _("ClearlyDefined URL");
-  $cdURL = "https://api.clearlydefined.io/";
-  $urlDesc = _("URL of ClearlyDefined server, e.g. $cdURL");
-  $urlValid = "check_url";
-  $valueArray[$variable] = array("'$variable'", "'$cdURL'", "'$urlPrompt'",
-    strval(CONFIG_TYPE_TEXT), "'URL'", "2", "'$urlDesc'", "'$urlValid'", "null");
-
   $variable = "NomostListNum";
   $nomosNumPrompt = _("Maximum licenses to List");
   $nomostListNum = "2200";
@@ -696,4 +688,38 @@ function check_IP($ip)
 {
   $e = "([0-9]|1[0-9]{2}|[1-9][0-9]|2[0-4][0-9]|25[0-5])";
   return preg_match("/^$e\.$e\.$e\.$e$/", $ip);
+}
+
+/**
+ * \brief Check if the cron job schedule interval is valid
+ * \param string $cron_interval cron job interval
+ * \return 1: yes , 0: no
+ */
+function check_cron_job_inteval($cron_interval)
+{
+  $cron_regex = "#^((@(annually|yearly|monthly|weekly|daily|hourly|reboot))|(@every (\d+(ns|us|µs|ms|s|m|h))+)|((((\d+,)+\d+|(\d+(\/|-)\d+)|\d+|\*) ?){5}))$#";
+  return preg_match($cron_regex, $cron_interval);
+}
+
+
+/**
+ * \brief Check if the fossology instance UUID is valid
+ * \param string $UUID cron job interval
+ * \return 1: yes , 0: no
+ */
+function check_fossology_instance_UUID($UUID)
+{
+  $instance_UUID_regex = "#^([a-zA-Z0-9_-]+)$#";
+  return preg_match($instance_UUID_regex, $UUID);
+}
+
+/**
+ * \brief Check if the fossology instance UUID is valid
+ * \param string $UUID cron job interval
+ * \return 1: yes , 0: no
+ */
+function check_fossdash_cleaning($cleaning_days)
+{
+  $numeric_day_regex = "#^[1-9][0-9]*$#";
+  return preg_match($numeric_day_regex, $cleaning_days);
 }

@@ -125,17 +125,17 @@ class ReadmeOssAgent extends Agent
       if (!$this->uploadDao->isAccessible($addUploadId, $groupId)) {
         continue;
       }
-      $moreLicenses = $this->licenseClearedGetter->getCleared($addUploadId, $this, $groupId, true, "license", false);
+      $moreLicenses = $this->licenseClearedGetter->getCleared($addUploadId, $groupId, true, null, false, $this);
       $licenseStmts = array_merge($licenseStmts, $moreLicenses['statements']);
       $this->heartbeat(count($moreLicenses['statements']));
       $this->licenseClearedGetter->setOnlyAcknowledgements(true);
-      $moreAcknowledgements = $this->licenseClearedGetter->getCleared($addUploadId, $this, $groupId, true, "license", false);
+      $moreAcknowledgements = $this->licenseClearedGetter->getCleared($addUploadId, $groupId, true, null, false, $this);
       $licenseAcknowledgements = array_merge($licenseAcknowledgements, $moreAcknowledgements['statements']);
       $this->heartbeat(count($moreAcknowledgements['statements']));
-      $moreCopyrights = $this->cpClearedGetter->getCleared($addUploadId, $this, $groupId, true, "copyright", false);
+      $moreCopyrights = $this->cpClearedGetter->getCleared($addUploadId, $groupId, true, "copyright", false, $this);
       $copyrightStmts = array_merge($copyrightStmts, $moreCopyrights['statements']);
       $this->heartbeat(count($moreCopyrights['statements']));
-      $moreMainLicenses = $this->licenseMainGetter->getCleared($addUploadId, $this, $groupId, true, null, false);
+      $moreMainLicenses = $this->licenseMainGetter->getCleared($addUploadId, $groupId, true, null, false, $this);
       $licenseStmtsMain = array_merge($licenseStmtsMain, $moreMainLicenses['statements']);
       $this->heartbeat(count($moreMainLicenses['statements']));
     }

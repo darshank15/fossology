@@ -52,7 +52,7 @@ extern PGconn* pgConn;
  * \def MAXSQL
  * Maximum length of SQL commands
  */
-#define MAXSQL  2048
+#define MAXSQL  1024
 /**
  * \def MAXSQLFolder
  * Maximum length of folder address

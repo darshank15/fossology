@@ -22,8 +22,6 @@ namespace Fossology\Lib\Dao;
 use Fossology\Lib\Data\Highlight;
 use Fossology\Lib\Data\Tree\ItemTreeBounds;
 use Fossology\Lib\Db\DbManager;
-use Fossology\Lib\Proxy\ScanJobProxy;
-use Fossology\Lib\Data\AgentRef;
 use Monolog\Logger;
 
 class CopyrightDao
@@ -32,6 +30,8 @@ class CopyrightDao
   private $dbManager;
   /** @var UploadDao */
   private $uploadDao;
+  /** @var ClearingDao */
+  private $clearingDao;
   /** @var Logger */
   private $logger;
 
@@ -40,6 +40,8 @@ class CopyrightDao
     $this->dbManager = $dbManager;
     $this->uploadDao = $uploadDao;
     $this->logger = new Logger(self::class);
+    global $container;
+    $this->clearingDao = $container->get('dao.clearing');
   }
 
   /**
@@ -171,10 +173,9 @@ class CopyrightDao
    * @param $uploadId
    * @param $type
    * @param $extrawhere
-   * @param $enabled
    * @return array $result
    */
-  public function getScannerEntries($tableName, $uploadTreeTableName, $uploadId, $type, $extrawhere, $enabled='true')
+  public function getScannerEntries($tableName, $uploadTreeTableName, $uploadId, $type, $extrawhere)
   {
     $statementName = __METHOD__.$tableName.$uploadTreeTableName;
     $params = array();
@@ -197,17 +198,12 @@ class CopyrightDao
       $statementName .= "._".$extrawhere."_";
     }
 
-    if ($enabled == 'false') {
-      $statementName .= "._"."enabled";
-    }
-
-    $sql = "SELECT UT.uploadtree_pk as uploadtree_pk, C.content AS content,
-              C.hash AS hash, C.agent_fk as agent_fk
+    $sql = "SELECT UT.uploadtree_pk as uploadtree_pk, C.content AS content
               FROM $tableName C
              INNER JOIN $uploadTreeTableName UT ON C.pfile_fk = UT.pfile_fk
              WHERE C.content IS NOT NULL
                AND C.content!=''
-               AND C.is_enabled='$enabled'
+               AND C.is_enabled='true'
                $extendWClause
              ORDER BY UT.uploadtree_pk, C.content DESC";
     $this->dbManager->prepare($statementName, $sql);
@@ -284,7 +280,7 @@ class CopyrightDao
       $scannerEntries = $this->getScannerEntries($tableName, $uploadTreeTableName, $uploadId, $type, $extrawhere);
       if (!empty($groupId)) {
         $itemTreeBounds = $this->uploadDao->getParentItemBounds($uploadId, $uploadTreeTableName);
-        $irrelevantDecisions = $GLOBALS['container']->get('dao.clearing')->getFilesForDecisionTypeFolderLevel($itemTreeBounds, $groupId);
+        $irrelevantDecisions = $this->clearingDao->getFilesForDecisionTypeFolderLevel($itemTreeBounds, $groupId);
         $uniqueIrrelevantDecisions = array_unique(array_column($irrelevantDecisions, 'uploadtree_pk'));
         foreach ($scannerEntries as $key => $value) {
           if (in_array($value['uploadtree_pk'], $uniqueIrrelevantDecisions)) {
@@ -438,13 +434,8 @@ class CopyrightDao
   {
     $itemTable = $item->getUploadTreeTableName();
     $stmt = __METHOD__.".$cpTable.$itemTable";
-    $params = array($item->getLeft(),$item->getRight());
-    $withHash = "";
+    $params = array($hash,$item->getLeft(),$item->getRight());
 
-    if (!empty($hash)) {
-      $params[] = $hash;
-      $withHash = " cp.hash = $3 AND ";
-    }
     if ($action == "delete") {
       $setSql = "is_enabled='false'";
       $stmt .= '.delete';
@@ -461,7 +452,8 @@ class CopyrightDao
             FROM $cpTable as cp
             INNER JOIN $itemTable AS ut ON cp.pfile_fk = ut.pfile_fk
             WHERE cpr.$cpTablePk = cp.$cpTablePk
-              AND $withHash ( ut.lft BETWEEN $1 AND $2 )";
+              AND cp.hash = $1
+              AND ( ut.lft BETWEEN $2 AND $3 )";
     if ('uploadtree_a' == $item->getUploadTreeTableName()) {
       $params[] = $item->getUploadId();
       $sql .= " AND ut.upload_fk=$".count($params);

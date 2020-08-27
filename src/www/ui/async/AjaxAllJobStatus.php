@@ -49,7 +49,7 @@ class AjaxAllJobStatus extends DefaultPlugin
   {
     parent::__construct(self::NAME,
       array(
-        self::PERMISSION => Auth::PERM_READ,
+        self::PERMISSION => Auth::PERM_NONE,
         self::REQUIRES_LOGIN => false
       ));
 
